@@ -1272,6 +1272,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
   const local = useLocal()
   const { theme } = useTheme()
   const sync = useSync()
+  const toast = useToast()
   const messages = createMemo(() => sync.data.message[props.message.sessionID] ?? [])
 
   const final = createMemo(() => {
@@ -1285,6 +1286,60 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
     if (!user || !user.time) return 0
     return props.message.time.completed - user.time.created
   })
+
+  const copyAssistantResponse = async () => {
+    const blocks: string[] = []
+
+    // Get all assistant messages in this chain
+    const chainMessages = messages()
+      .filter((m) => m.role === "assistant" && m.parentID === props.message.parentID)
+      .sort((a, b) => a.id.localeCompare(b.id))
+
+    for (const message of chainMessages) {
+      const parts = sync.data.part[message.id] ?? []
+      for (const part of parts) {
+        if (part.type === "text" && !part.synthetic) {
+          blocks.push(part.text.trim())
+        } else if (part.type === "tool") {
+          const toolName = part.tool
+          const state = part.state
+          if (state.status === "completed") {
+            const metadata = state.metadata ?? {}
+
+            // Build header with title and optional description
+            const title = state.title || `[${toolName}]`
+            const desc = metadata.description && metadata.description !== state.title ? metadata.description : ""
+            const header = desc ? `# ${title}\n${desc}` : `# ${title}`
+
+            // Get content from diff, metadata output, or state output
+            const content =
+              [metadata.diff, metadata.output, state.output]
+                .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+                .map((v) => stripAnsi(v.trim()))
+                .at(0) ?? ""
+
+            if (content) {
+              blocks.push(`${header}\n\n${content}`)
+            } else {
+              blocks.push(header)
+            }
+          }
+        }
+      }
+    }
+
+    const fullText = blocks.join("\n\n---\n\n")
+
+    const count = chainMessages.length
+    await Clipboard.copy(fullText)
+      .then(() =>
+        toast.show({
+          message: `Copied assistant response chain (${count} link${count > 1 ? "s" : ""})`,
+          variant: "success",
+        }),
+      )
+      .catch(() => toast.show({ message: "Failed to copy to clipboard", variant: "error" }))
+  }
 
   return (
     <>
@@ -1319,7 +1374,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
       </Show>
       <Switch>
         <Match when={props.last || final()}>
-          <box paddingLeft={3}>
+          <box paddingLeft={3} flexDirection="row" gap={1}>
             <text marginTop={1}>
               <span style={{ fg: local.agent.color(props.message.mode) }}>▣ </span>{" "}
               <span style={{ fg: theme.text }}>{Locale.titlecase(props.message.mode)}</span>
@@ -1328,6 +1383,11 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
                 <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
               </Show>
             </text>
+            <Show when={props.message.time.completed}>
+              <text marginTop={1} onMouseUp={copyAssistantResponse} style={{ fg: theme.textMuted }}>
+                [copy]
+              </text>
+            </Show>
           </box>
         </Match>
       </Switch>
