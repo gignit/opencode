@@ -8684,6 +8684,41 @@
               "prune": {
                 "description": "Enable pruning of old tool outputs (default: true)",
                 "type": "boolean"
+              },
+              "method": {
+                "description": "Compaction method: 'standard' summarizes entire conversation, 'collapse' extracts oldest messages and creates summary at breakpoint (default: standard)",
+                "type": "string",
+                "enum": ["standard", "collapse"]
+              },
+              "trigger": {
+                "description": "Trigger compaction at this fraction of total context (default: 0.85 = 85%)",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "extractRatio": {
+                "description": "For collapse mode: fraction of oldest tokens to extract and summarize (default: 0.65)",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "recentRatio": {
+                "description": "For collapse mode: fraction of newest tokens to use as reference context (default: 0.15)",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "summaryMaxTokens": {
+                "description": "For collapse mode: target token count for the summary output (default: 10000)",
+                "type": "number",
+                "minimum": 1000,
+                "maximum": 50000
+              },
+              "previousSummaries": {
+                "description": "For collapse mode: number of previous summaries to include for context merging (default: 3)",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10
               }
             }
           },
