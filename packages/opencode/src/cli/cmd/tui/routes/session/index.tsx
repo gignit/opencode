@@ -56,6 +56,7 @@ import { DialogTimeline } from "./dialog-timeline"
 import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { Sidebar } from "./sidebar"
+import { FileViewer } from "./file-viewer"
 import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
 import parsers from "../../../../../../parsers-config.ts"
 import { Clipboard } from "../../util/clipboard"
@@ -90,6 +91,7 @@ const context = createContext<{
   userMessageMarkdown: () => boolean
   diffWrapMode: () => "word" | "none"
   sync: ReturnType<typeof useSync>
+  openFile: (filePath: string) => void
 }>()
 
 function use() {
@@ -129,6 +131,13 @@ export function Session() {
   const [diffWrapMode, setDiffWrapMode] = createSignal<"word" | "none">("word")
   const [animationsEnabled, setAnimationsEnabled] = createSignal(kv.get("animations_enabled", true))
 
+  // File viewer state
+  const [activeFile, setActiveFile] = createSignal<string | null>(null)
+
+  const [fileViewerFocused, setFileViewerFocused] = createSignal(false)
+  const [fileViewerWidth, setFileViewerWidth] = createSignal<number>(kv.get("file_viewer_width", 60))
+  const [isDraggingDivider, setIsDraggingDivider] = createSignal(false)
+
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => {
     if (session()?.parentID) return false
@@ -137,6 +146,14 @@ export function Session() {
     return false
   })
   const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
+
+  // Clamp file viewer width to available space
+  const clampedFileViewerWidth = createMemo(() => {
+    const totalWidth = dimensions().width - (sidebarVisible() ? 42 : 0) - 4
+    const minWidth = 20
+    const maxWidth = totalWidth - 30
+    return Math.max(minWidth, Math.min(maxWidth, fileViewerWidth()))
+  })
 
   const scrollAcceleration = createMemo(() => {
     const tui = sync.data.config.tui
@@ -250,6 +267,13 @@ export function Session() {
 
   useKeyboard((evt) => {
     if (dialog.stack.length > 0) return
+
+    // Handle Escape to close file panel when focused
+    if (evt.name === "escape" && fileViewerFocused() && activeFile()) {
+      setActiveFile(null)
+      setFileViewerFocused(false)
+      return
+    }
 
     const first = permissions()[0]
     if (first) {
@@ -594,6 +618,17 @@ export function Session() {
           kv.set("animations_enabled", next)
           return next
         })
+        dialog.clear()
+      },
+    },
+    {
+      title: "Close file viewer",
+      value: "session.file_viewer.close",
+      category: "Session",
+      disabled: !activeFile(),
+      onSelect: (dialog) => {
+        setActiveFile(null)
+        setFileViewerFocused(false)
         dialog.clear()
       },
     },
@@ -998,6 +1033,10 @@ export function Session() {
         userMessageMarkdown,
         diffWrapMode,
         sync,
+        openFile: (filePath: string) => {
+          setActiveFile(filePath)
+          setFileViewerFocused(true)
+        },
       }}
     >
       <box flexDirection="row">
@@ -1006,120 +1045,153 @@ export function Session() {
             <Show when={!sidebarVisible()}>
               <Header />
             </Show>
-            <scrollbox
-              ref={(r) => (scroll = r)}
-              viewportOptions={{
-                paddingRight: showScrollbar() ? 1 : 0,
-              }}
-              verticalScrollbarOptions={{
-                paddingLeft: 1,
-                visible: showScrollbar(),
-                trackOptions: {
-                  backgroundColor: theme.backgroundElement,
-                  foregroundColor: theme.border,
-                },
-              }}
-              stickyScroll={true}
-              stickyStart="bottom"
-              flexGrow={1}
-              scrollAcceleration={scrollAcceleration()}
-            >
-              <For each={messages()}>
-                {(message, index) => (
-                  <Switch>
-                    <Match when={message.id === revert()?.messageID}>
-                      {(function () {
-                        const command = useCommandDialog()
-                        const [hover, setHover] = createSignal(false)
-                        const dialog = useDialog()
+            <box flexDirection="row" flexGrow={1}>
+              <scrollbox
+                ref={(r) => (scroll = r)}
+                viewportOptions={{
+                  paddingRight: showScrollbar() ? 1 : 0,
+                }}
+                verticalScrollbarOptions={{
+                  paddingLeft: 1,
+                  visible: showScrollbar(),
+                  trackOptions: {
+                    backgroundColor: theme.backgroundElement,
+                    foregroundColor: theme.border,
+                  },
+                }}
+                stickyScroll={true}
+                stickyStart="bottom"
+                flexGrow={1}
+                scrollAcceleration={scrollAcceleration()}
+              >
+                <For each={messages()}>
+                  {(message, index) => (
+                    <Switch>
+                      <Match when={message.id === revert()?.messageID}>
+                        {(function () {
+                          const command = useCommandDialog()
+                          const [hover, setHover] = createSignal(false)
+                          const dialog = useDialog()
 
-                        const handleUnrevert = async () => {
-                          const confirmed = await DialogConfirm.show(
-                            dialog,
-                            "Confirm Redo",
-                            "Are you sure you want to restore the reverted messages?",
-                          )
-                          if (confirmed) {
-                            command.trigger("session.redo")
+                          const handleUnrevert = async () => {
+                            const confirmed = await DialogConfirm.show(
+                              dialog,
+                              "Confirm Redo",
+                              "Are you sure you want to restore the reverted messages?",
+                            )
+                            if (confirmed) {
+                              command.trigger("session.redo")
+                            }
                           }
-                        }
 
-                        return (
-                          <box
-                            onMouseOver={() => setHover(true)}
-                            onMouseOut={() => setHover(false)}
-                            onMouseUp={handleUnrevert}
-                            marginTop={1}
-                            flexShrink={0}
-                            border={["left"]}
-                            customBorderChars={SplitBorder.customBorderChars}
-                            borderColor={theme.backgroundPanel}
-                          >
+                          return (
                             <box
-                              paddingTop={1}
-                              paddingBottom={1}
-                              paddingLeft={2}
-                              backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+                              onMouseOver={() => setHover(true)}
+                              onMouseOut={() => setHover(false)}
+                              onMouseUp={handleUnrevert}
+                              marginTop={1}
+                              flexShrink={0}
+                              border={["left"]}
+                              customBorderChars={SplitBorder.customBorderChars}
+                              borderColor={theme.backgroundPanel}
                             >
-                              <text fg={theme.textMuted}>{revert()!.reverted.length} message reverted</text>
-                              <text fg={theme.textMuted}>
-                                <span style={{ fg: theme.text }}>{keybind.print("messages_redo")}</span> or /redo to
-                                restore
-                              </text>
-                              <Show when={revert()!.diffFiles?.length}>
-                                <box marginTop={1}>
-                                  <For each={revert()!.diffFiles}>
-                                    {(file) => (
-                                      <text fg={theme.text}>
-                                        {file.filename}
-                                        <Show when={file.additions > 0}>
-                                          <span style={{ fg: theme.diffAdded }}> +{file.additions}</span>
-                                        </Show>
-                                        <Show when={file.deletions > 0}>
-                                          <span style={{ fg: theme.diffRemoved }}> -{file.deletions}</span>
-                                        </Show>
-                                      </text>
-                                    )}
-                                  </For>
-                                </box>
-                              </Show>
+                              <box
+                                paddingTop={1}
+                                paddingBottom={1}
+                                paddingLeft={2}
+                                backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+                              >
+                                <text fg={theme.textMuted}>{revert()!.reverted.length} message reverted</text>
+                                <text fg={theme.textMuted}>
+                                  <span style={{ fg: theme.text }}>{keybind.print("messages_redo")}</span> or /redo to
+                                  restore
+                                </text>
+                                <Show when={revert()!.diffFiles?.length}>
+                                  <box marginTop={1}>
+                                    <For each={revert()!.diffFiles}>
+                                      {(file) => (
+                                        <text fg={theme.text}>
+                                          {file.filename}
+                                          <Show when={file.additions > 0}>
+                                            <span style={{ fg: theme.diffAdded }}> +{file.additions}</span>
+                                          </Show>
+                                          <Show when={file.deletions > 0}>
+                                            <span style={{ fg: theme.diffRemoved }}> -{file.deletions}</span>
+                                          </Show>
+                                        </text>
+                                      )}
+                                    </For>
+                                  </box>
+                                </Show>
+                              </box>
                             </box>
-                          </box>
-                        )
-                      })()}
-                    </Match>
-                    <Match when={revert()?.messageID && message.id >= revert()!.messageID}>
-                      <></>
-                    </Match>
-                    <Match when={message.role === "user"}>
-                      <UserMessage
-                        index={index()}
-                        onMouseUp={() => {
-                          if (renderer.getSelection()?.getSelectedText()) return
-                          dialog.replace(() => (
-                            <DialogMessage
-                              messageID={message.id}
-                              sessionID={route.sessionID}
-                              setPrompt={(promptInfo) => prompt.set(promptInfo)}
-                            />
-                          ))
-                        }}
-                        message={message as UserMessage}
-                        parts={sync.data.part[message.id] ?? []}
-                        pending={pending()}
-                      />
-                    </Match>
-                    <Match when={message.role === "assistant"}>
-                      <AssistantMessage
-                        last={lastAssistant()?.id === message.id}
-                        message={message as AssistantMessage}
-                        parts={sync.data.part[message.id] ?? []}
-                      />
-                    </Match>
-                  </Switch>
-                )}
-              </For>
-            </scrollbox>
+                          )
+                        })()}
+                      </Match>
+                      <Match when={revert()?.messageID && message.id >= revert()!.messageID}>
+                        <></>
+                      </Match>
+                      <Match when={message.role === "user"}>
+                        <UserMessage
+                          index={index()}
+                          onMouseUp={() => {
+                            if (renderer.getSelection()?.getSelectedText()) return
+                            dialog.replace(() => (
+                              <DialogMessage
+                                messageID={message.id}
+                                sessionID={route.sessionID}
+                                setPrompt={(promptInfo) => prompt.set(promptInfo)}
+                              />
+                            ))
+                          }}
+                          message={message as UserMessage}
+                          parts={sync.data.part[message.id] ?? []}
+                          pending={pending()}
+                        />
+                      </Match>
+                      <Match when={message.role === "assistant"}>
+                        <AssistantMessage
+                          last={lastAssistant()?.id === message.id}
+                          message={message as AssistantMessage}
+                          parts={sync.data.part[message.id] ?? []}
+                        />
+                      </Match>
+                    </Switch>
+                  )}
+                </For>
+              </scrollbox>
+              <Show when={activeFile()}>
+                <box
+                  width={1}
+                  backgroundColor={isDraggingDivider() ? theme.accent : theme.border}
+                  onMouseDown={() => setIsDraggingDivider(true)}
+                  onMouseDrag={(e) => {
+                    if (isDraggingDivider()) {
+                      // Calculate new width based on mouse position from right edge
+                      const totalWidth = dimensions().width - (sidebarVisible() ? 42 : 0)
+                      const newWidth = Math.max(20, Math.min(totalWidth - 30, totalWidth - e.x))
+                      setFileViewerWidth(newWidth)
+                    }
+                  }}
+                  onMouseDragEnd={() => {
+                    setIsDraggingDivider(false)
+                    kv.set("file_viewer_width", fileViewerWidth())
+                  }}
+                />
+                <box width={clampedFileViewerWidth()}>
+                  <FileViewer
+                    filePath={activeFile()!}
+                    sessionID={route.sessionID}
+                    onClose={() => {
+                      setActiveFile(null)
+                      setFileViewerFocused(false)
+                    }}
+                    focused={fileViewerFocused()}
+                    onFocus={() => setFileViewerFocused(true)}
+                  />
+                </box>
+              </Show>
+            </box>
             <box flexShrink={0}>
               <Prompt
                 ref={(r) => {
@@ -1129,6 +1201,7 @@ export function Session() {
                 disabled={permissions().length > 0}
                 onSubmit={() => {
                   toBottom()
+                  setFileViewerFocused(false)
                 }}
                 sessionID={route.sessionID}
               />
@@ -1140,7 +1213,14 @@ export function Session() {
           <Toast />
         </box>
         <Show when={sidebarVisible()}>
-          <Sidebar sessionID={route.sessionID} />
+          <Sidebar
+            sessionID={route.sessionID}
+            onFileClick={(filePath) => {
+              setActiveFile(filePath)
+              setFileViewerFocused(true)
+            }}
+            activeFile={activeFile()}
+          />
         </Show>
       </box>
     </context.Provider>
@@ -1542,10 +1622,25 @@ const ToolRegistry = (() => {
   }
 })()
 
-function ToolTitle(props: { fallback: string; when: any; icon: string; children: JSX.Element }) {
+function ToolTitle(props: { fallback: string; when: any; icon: string; children: JSX.Element; filePath?: string }) {
   const { theme } = useTheme()
+  const ctx = use()
+  const [hover, setHover] = createSignal(false)
+
+  const handleClick = () => {
+    if (props.filePath) {
+      ctx.openFile(props.filePath)
+    }
+  }
+
   return (
-    <text paddingLeft={3} fg={props.when ? theme.textMuted : theme.text}>
+    <text
+      paddingLeft={3}
+      fg={hover() && props.filePath ? theme.accent : props.when ? theme.textMuted : theme.text}
+      onMouseOver={() => props.filePath && setHover(true)}
+      onMouseOut={() => setHover(false)}
+      onMouseDown={handleClick}
+    >
       <Show fallback={<>~ {props.fallback}</>} when={props.when}>
         <span style={{ bold: true }}>{props.icon}</span> {props.children}
       </Show>
@@ -1583,7 +1678,7 @@ ToolRegistry.register<typeof ReadTool>({
   render(props) {
     return (
       <>
-        <ToolTitle icon="→" fallback="Reading file..." when={props.input.filePath}>
+        <ToolTitle icon="→" fallback="Reading file..." when={props.input.filePath} filePath={props.input.filePath}>
           Read {normalizePath(props.input.filePath!)} {input(props.input, ["filePath"])}
         </ToolTitle>
       </>
@@ -1610,8 +1705,8 @@ ToolRegistry.register<typeof WriteTool>({
 
     return (
       <>
-        <ToolTitle icon="←" fallback="Preparing write..." when={done}>
-          Wrote {props.input.filePath}
+        <ToolTitle icon="←" fallback="Preparing write..." when={done} filePath={props.input.filePath}>
+          Wrote {normalizePath(props.input.filePath!)}
         </ToolTitle>
         <Show when={done}>
           <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
@@ -1790,7 +1885,7 @@ ToolRegistry.register<typeof EditTool>({
 
     return (
       <>
-        <ToolTitle icon="←" fallback="Preparing edit..." when={props.input.filePath}>
+        <ToolTitle icon="←" fallback="Preparing edit..." when={props.input.filePath} filePath={props.input.filePath}>
           Edit {normalizePath(props.input.filePath!)}{" "}
           {input({
             replaceAll: props.input.replaceAll,
