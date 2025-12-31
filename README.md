@@ -7,6 +7,68 @@
     </picture>
   </a>
 </p>
+<p align="center"><b>OpenCode gigNit Edition</b></p>
+<p align="center">gigNit fork with custom features and enhancements</p>
+
+---
+
+## Branch Workflow
+
+### `main` (this branch)
+
+Personal build branch that combines:
+
+- Latest upstream `dev`
+- All feature branches merged in for local use
+
+### `dev`
+
+Tracks upstream `origin/dev`. Used as the base for rebasing feature branches.
+
+### Feature Branches
+
+Each feature/fix has its own branch with a corresponding PR:
+
+| Branch                            | PR                                                 | Description                                 |
+| --------------------------------- | -------------------------------------------------- | ------------------------------------------- |
+| `feature/dynamic-details`         | [#6393](https://github.com/sst/opencode/pull/6393) | Compact tool output with click-to-expand    |
+| `feature/collapse-compaction`     | [#6374](https://github.com/sst/opencode/pull/6374) | Preserve context across compaction cycles   |
+| `feature/copy-assistant-response` | [#6444](https://github.com/sst/opencode/pull/6444) | One-click copy entire response chain        |
+| `fix/fork-parent-id-mapping`      | [#6445](https://github.com/sst/opencode/pull/6445) | Fix broken forked sessions with compactions |
+| `fix/install-path-handling`       | [#6498](https://github.com/sst/opencode/pull/6498) | Improve PATH handling in install script     |
+
+## Updating Workflow
+
+### Rebase a feature branch onto latest dev
+
+```bash
+git checkout feature/my-feature
+git fetch origin dev
+git rebase origin/dev
+git push --force-with-lease myfork feature/my-feature
+```
+
+### Rebuild main with all features
+
+```bash
+git checkout main
+git fetch origin dev
+git reset --hard origin/dev
+git merge feature/collapse-compaction --no-edit
+git merge feature/copy-assistant-response --no-edit
+git merge feature/dynamic-details --no-edit
+git merge fix/fork-parent-id-mapping --no-edit
+```
+
+## Running
+
+```bash
+cd packages/opencode
+bun dev
+```
+
+---
+
 <p align="center">The open source AI coding agent.</p>
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
