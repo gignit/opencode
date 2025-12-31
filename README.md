@@ -39,6 +39,10 @@ Each feature/fix has its own branch with a corresponding PR:
 
 ## Updating Workflow
 
+> **IMPORTANT: Always use `rebase`, NEVER use `merge` or `git pull` on feature branches!**
+>
+> Merging creates ugly merge commits in PRs. Rebasing keeps clean linear history.
+
 ### Rebase a feature branch onto latest dev
 
 ```bash
@@ -59,6 +63,21 @@ git merge feature/copy-assistant-response --no-edit
 git merge feature/dynamic-details --no-edit
 git merge fix/fork-parent-id-mapping --no-edit
 git push origin main --force-with-lease
+```
+
+Note: Merging into `main` is OK - this is our local build branch, not a PR.
+
+### Fix a feature branch with merge commits
+
+If a feature branch accidentally got merge commits, fix it:
+
+```bash
+git checkout feature/my-feature
+git fetch upstream dev
+git fetch origin feature/my-feature
+git reset --hard origin/feature/my-feature
+git rebase upstream/dev
+git push --force-with-lease origin feature/my-feature
 ```
 
 ## Remotes
