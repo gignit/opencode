@@ -23,7 +23,7 @@ Personal build branch that combines:
 
 ### `dev`
 
-Tracks upstream `origin/dev`. Used as the base for rebasing feature branches.
+Tracks upstream `upstream/dev`. Used as the base for rebasing feature branches.
 
 ### Feature Branches
 
@@ -43,22 +43,28 @@ Each feature/fix has its own branch with a corresponding PR:
 
 ```bash
 git checkout feature/my-feature
-git fetch origin dev
-git rebase origin/dev
-git push --force-with-lease myfork feature/my-feature
+git fetch upstream dev
+git rebase upstream/dev
+git push --force-with-lease origin feature/my-feature
 ```
 
 ### Rebuild main with all features
 
 ```bash
 git checkout main
-git fetch origin dev
-git reset --hard origin/dev
+git fetch upstream dev
+git reset --hard upstream/dev
 git merge feature/collapse-compaction --no-edit
 git merge feature/copy-assistant-response --no-edit
 git merge feature/dynamic-details --no-edit
 git merge fix/fork-parent-id-mapping --no-edit
+git push origin main --force-with-lease
 ```
+
+## Remotes
+
+- `origin` = your fork (`github.com:gignit/opencode`)
+- `upstream` = official repo (`github.com:sst/opencode`)
 
 ## Running
 
