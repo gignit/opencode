@@ -87,6 +87,7 @@ const context = createContext<{
   showTimestamps: () => boolean
   usernameVisible: () => boolean
   showDetails: () => boolean
+  dynamicDetails: () => boolean
   userMessageMarkdown: () => boolean
   diffWrapMode: () => "word" | "none"
   sync: ReturnType<typeof useSync>
@@ -124,6 +125,7 @@ export function Session() {
   const [showTimestamps, setShowTimestamps] = createSignal(kv.get("timestamps", "hide") === "show")
   const [usernameVisible, setUsernameVisible] = createSignal(kv.get("username_visible", true))
   const [showDetails, setShowDetails] = createSignal(kv.get("tool_details_visibility", true))
+  const [dynamicDetails, setDynamicDetails] = createSignal(kv.get("dynamic_details", false))
   const [showScrollbar, setShowScrollbar] = createSignal(kv.get("scrollbar_visible", false))
   const [userMessageMarkdown, setUserMessageMarkdown] = createSignal(kv.get("user_message_markdown", true))
   const [diffWrapMode, setDiffWrapMode] = createSignal<"word" | "none">("word")
@@ -574,6 +576,17 @@ export function Session() {
       },
     },
     {
+      title: dynamicDetails() ? "Disable dynamic details" : "Enable dynamic details",
+      value: "session.toggle.dynamic_details",
+      category: "Session",
+      onSelect: (dialog) => {
+        const newValue = !dynamicDetails()
+        setDynamicDetails(newValue)
+        kv.set("dynamic_details", newValue)
+        dialog.clear()
+      },
+    },
+    {
       title: "Toggle session scrollbar",
       value: "session.toggle.scrollbar",
       keybind: "scrollbar_toggle",
@@ -1011,6 +1024,7 @@ export function Session() {
         showTimestamps,
         usernameVisible,
         showDetails,
+        dynamicDetails,
         userMessageMarkdown,
         diffWrapMode,
         sync,
@@ -1474,9 +1488,51 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
 
 function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMessage }) {
   const { theme } = useTheme()
-  const { showDetails } = use()
+  const { showDetails, dynamicDetails } = use()
   const sync = useSync()
   const [margin, setMargin] = createSignal(0)
+  const [collapsed, setCollapsed] = createSignal(true)
+
+  // Config values - memoized at component level
+  const maxLines = createMemo(() => sync.data.config.tui?.dynamic_details_max_lines ?? 15)
+  const showArrows = createMemo(() => sync.data.config.tui?.dynamic_details_show_arrows ?? true)
+
+  // Collapse logic - memoized at component level
+  const container = ToolRegistry.container(props.part.tool)
+
+  // Calculate raw line count for initial collapse decision
+  const totalLines = createMemo(() => {
+    if (container !== "block" || !dynamicDetails()) return 0
+
+    const status = props.part.state.status
+    const mapping = toolmap.find((t) => t.name === props.part.tool)
+
+    // Skip for tools that opt out of dynamic details
+    if (mapping?.dynamic === false) return 0
+
+    // Use toolmap for configured tools
+    if (mapping && status === "completed") {
+      let total = 0
+      for (const field of mapping.fields) {
+        const value = getFieldValue(props.part.state as Record<string, unknown>, field.path)
+        if (typeof value === "string") {
+          total += value.trimEnd().split("\n").length
+        }
+      }
+      return total
+    }
+
+    // Default: check output for tools not in toolmap
+    if (status === "completed" && props.part.state.output) {
+      return props.part.state.output.split("\n").length
+    }
+
+    return 0
+  })
+
+  const shouldCollapse = createMemo(() => totalLines() > maxLines())
+  const [visualLines, setVisualLines] = createSignal(0)
+
   const component = createMemo(() => {
     // Hide tool if showDetails is false and tool completed successfully
     // But always show if there's an error or permission is required
@@ -1491,9 +1547,20 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
 
     const render = ToolRegistry.render(props.part.tool) ?? GenericTool
 
-    const metadata = props.part.state.status === "pending" ? {} : (props.part.state.metadata ?? {})
-    const input = props.part.state.input ?? {}
-    const container = ToolRegistry.container(props.part.tool)
+    // Process tool fields (stripAnsi, trimEnd) based on toolmap config
+    const processedState =
+      props.part.state.status === "pending"
+        ? props.part.state
+        : processToolFields(props.part.tool, props.part.state as Record<string, unknown>)
+
+    const metadata =
+      props.part.state.status === "pending" ? {} : ((processedState as Record<string, unknown>).metadata ?? {})
+    const input = (processedState as Record<string, unknown>).input ?? {}
+    const rawOutput =
+      props.part.state.status === "completed"
+        ? ((processedState as Record<string, unknown>).output as string | undefined)
+        : undefined
+
     const permissions = sync.data.permission[props.message.sessionID] ?? []
     const permissionIndex = permissions.findIndex((x) => x.callID === props.part.callID)
     const permission = permissions[permissionIndex]
@@ -1515,10 +1582,19 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
             paddingLeft: 3,
           }
 
+    const handleToggle = () => {
+      if (!shouldCollapse()) return
+      setCollapsed(!collapsed())
+    }
+
     return (
       <box
         marginTop={margin()}
         {...style}
+        maxHeight={shouldCollapse() && collapsed() ? maxLines() : undefined}
+        overflow={shouldCollapse() && collapsed() ? "hidden" : undefined}
+        justifyContent={shouldCollapse() && collapsed() ? "flex-start" : undefined}
+        onMouseUp={handleToggle}
         renderBefore={function () {
           const el = this as BoxRenderable
           const parent = el.parent
@@ -1527,18 +1603,41 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
           }
           if (el.height > 1) {
             setMargin(1)
-            return
+          } else {
+            const children = parent.getChildren()
+            const index = children.indexOf(el)
+            const previous = children[index - 1]
+            if (!previous) {
+              setMargin(0)
+            } else if (previous.height > 1 || previous.id.startsWith("text-")) {
+              setMargin(1)
+            }
           }
-          const children = parent.getChildren()
-          const index = children.indexOf(el)
-          const previous = children[index - 1]
-          if (!previous) {
-            setMargin(0)
-            return
-          }
-          if (previous.height > 1 || previous.id.startsWith("text-")) {
-            setMargin(1)
-            return
+          // Calculate visual lines from text children
+          if (shouldCollapse()) {
+            const countVisualLines = (node: BoxRenderable): number => {
+              const children = node.getChildren()
+              // Check if this is a split diff view (has view="split" property)
+              const isSplitView = "view" in node && node.view === "split"
+              let maxChildLines = 0
+              let sumChildLines = 0
+              for (const child of children) {
+                let childLines = 0
+                if ("virtualLineCount" in child && typeof child.virtualLineCount === "number") {
+                  childLines = child.virtualLineCount
+                }
+                if ("getChildren" in child && typeof child.getChildren === "function") {
+                  childLines = Math.max(childLines, countVisualLines(child as BoxRenderable))
+                }
+                maxChildLines = Math.max(maxChildLines, childLines)
+                sumChildLines += childLines
+              }
+              // For split diff view, use max (left/right show same content)
+              // Otherwise sum all children
+              return isSplitView ? maxChildLines : sumChildLines
+            }
+            const total = countVisualLines(el)
+            if (total > 0) setVisualLines(total)
           }
         }}
       >
@@ -1548,8 +1647,24 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
           tool={props.part.tool}
           metadata={metadata}
           permission={permission?.metadata ?? {}}
-          output={props.part.state.status === "completed" ? props.part.state.output : undefined}
+          output={rawOutput}
         />
+        {shouldCollapse() && (visualLines() === 0 || visualLines() > maxLines()) && (
+          <box flexDirection="row">
+            <box backgroundColor={theme.backgroundElement} paddingLeft={2} paddingRight={2}>
+              <text fg={theme.textMuted}>
+                {collapsed() ? (
+                  <>
+                    {showArrows() ? "▶ " : ""}Click to expand{" "}
+                    <span style={{ fg: theme.border }}>(+{Math.max(1, visualLines() - maxLines())})</span>
+                  </>
+                ) : (
+                  <>{showArrows() ? "▼ " : ""}Click to collapse</>
+                )}
+              </text>
+            </box>
+          </box>
+        )}
         {props.part.state.status === "error" && (
           <box paddingLeft={2}>
             <text fg={theme.error}>{props.part.state.error.replace("Error: ", "")}</text>
@@ -1618,6 +1733,75 @@ const ToolRegistry = (() => {
   }
 })()
 
+// Tool field mapping for dynamic details
+// - path: dot-notation path to the field in part.state (e.g., "input.command", "output", "metadata.diff")
+// - stripAnsi: whether to strip ANSI codes before processing (default false)
+// - dynamic: whether to enable dynamic details for this tool (default true)
+// Fields are used for both line counting (shouldCollapse) and display processing (trimEnd, stripAnsi)
+const toolmap: Array<{ name: string; dynamic?: boolean; fields: Array<{ path: string; stripAnsi?: boolean }> }> = [
+  { name: "bash", fields: [{ path: "input.command" }, { path: "metadata.output", stripAnsi: true }] },
+  { name: "edit", fields: [{ path: "metadata.diff" }] },
+  { name: "write", fields: [{ path: "input.content" }] },
+  { name: "patch", fields: [{ path: "output" }] },
+  { name: "todowrite", dynamic: false, fields: [] },
+]
+
+function getFieldValue(state: Record<string, unknown>, path: string): string | undefined {
+  const parts = path.split(".")
+  let value: unknown = state
+  for (const part of parts) {
+    if (value && typeof value === "object" && part in value) {
+      value = (value as Record<string, unknown>)[part]
+    } else {
+      return undefined
+    }
+  }
+  return typeof value === "string" ? value : undefined
+}
+
+function setFieldValue(state: Record<string, unknown>, path: string, value: string): void {
+  const parts = path.split(".")
+  let current: Record<string, unknown> = state
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i]
+    if (!(part in current) || typeof current[part] !== "object") {
+      current[part] = {}
+    }
+    current = current[part] as Record<string, unknown>
+  }
+  current[parts[parts.length - 1]] = value
+}
+
+// Process tool state fields based on toolmap config (stripAnsi, trimEnd)
+function processToolFields(tool: string, state: Record<string, unknown>): Record<string, unknown> {
+  const mapping = toolmap.find((t) => t.name === tool)
+
+  // Skip processing for tools that opt out of dynamic details
+  if (mapping?.dynamic === false) return state
+
+  const result = JSON.parse(JSON.stringify(state)) as Record<string, unknown>
+
+  if (mapping) {
+    for (const field of mapping.fields) {
+      const value = getFieldValue(result, field.path)
+      if (typeof value === "string") {
+        let processed = value
+        if (field.stripAnsi) processed = stripAnsi(processed)
+        processed = processed.trimEnd()
+        setFieldValue(result, field.path, processed)
+      }
+    }
+  } else {
+    // Default: trimEnd output field
+    const output = getFieldValue(result, "output")
+    if (typeof output === "string") {
+      setFieldValue(result, "output", output.trimEnd())
+    }
+  }
+
+  return result
+}
+
 function ToolTitle(props: { fallback: string; when: any; icon: string; children: JSX.Element }) {
   const { theme } = useTheme()
   return (
@@ -1629,25 +1813,28 @@ function ToolTitle(props: { fallback: string; when: any; icon: string; children:
   )
 }
 
+// Bash tool uses a single <box><text> for command + output combined.
+// This is required for dynamic details collapsing to work properly - having
+// separate elements causes yoga layout issues where children overlap instead
+// of stacking when maxHeight/overflow:hidden is applied to the parent.
 ToolRegistry.register<typeof BashTool>({
   name: "bash",
   container: "block",
   render(props) {
-    const output = createMemo(() => stripAnsi(props.metadata.output?.trim() ?? ""))
+    const command = createMemo(() => props.input.command ?? "")
+    const output = createMemo(() => props.metadata.output ?? "")
     const { theme } = useTheme()
     return (
       <>
         <ToolTitle icon="#" fallback="Writing command..." when={props.input.command}>
           {props.input.description || "Shell"}
         </ToolTitle>
-        <Show when={props.input.command}>
-          <text fg={theme.text}>$ {props.input.command}</text>
-        </Show>
-        <Show when={output()}>
-          <box>
-            <text fg={theme.text}>{output()}</text>
-          </box>
-        </Show>
+        <box>
+          <text fg={theme.text}>
+            $ {command()}
+            {output() ? "\n" + output() : ""}
+          </text>
+        </box>
       </>
     )
   },
@@ -1923,7 +2110,7 @@ ToolRegistry.register<typeof PatchTool>({
         </ToolTitle>
         <Show when={props.output}>
           <box>
-            <text fg={theme.text}>{props.output?.trim()}</text>
+            <text fg={theme.text}>{props.output}</text>
           </box>
         </Show>
       </>
