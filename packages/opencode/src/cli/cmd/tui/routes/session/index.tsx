@@ -139,6 +139,9 @@ export function Session() {
   const [showScrollbar, setShowScrollbar] = createSignal(kv.get("scrollbar_visible", false))
   const [diffWrapMode, setDiffWrapMode] = createSignal<"word" | "none">("word")
   const [animationsEnabled, setAnimationsEnabled] = createSignal(kv.get("animations_enabled", true))
+  const [compactionMethod, setCompactionMethod] = createSignal<"standard" | "collapse">(
+    kv.get("compaction_method", sync.data.config.compaction?.method ?? "standard"),
+  )
 
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => {
@@ -353,6 +356,19 @@ export function Session() {
           sessionID: route.sessionID,
           modelID: selectedModel.modelID,
           providerID: selectedModel.providerID,
+        })
+        dialog.clear()
+      },
+    },
+    {
+      title: compactionMethod() === "collapse" ? "Use standard compaction" : "Use collapse compaction",
+      value: "session.toggle.compaction_method",
+      category: "Session",
+      onSelect: (dialog) => {
+        setCompactionMethod((prev) => {
+          const next = prev === "standard" ? "collapse" : "standard"
+          kv.set("compaction_method", next)
+          return next
         })
         dialog.clear()
       },

@@ -271,6 +271,7 @@ export namespace SessionPrompt {
       SessionStatus.set(sessionID, { type: "busy" })
       log.info("loop", { step, sessionID })
       if (abort.aborted) break
+
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
 
       let lastUser: MessageV2.User | undefined
@@ -289,6 +290,12 @@ export namespace SessionPrompt {
           tasks.push(...task)
         }
       }
+
+      log.debug("state", {
+        lastUser: lastUser?.id,
+        lastFinished: lastFinished?.id,
+        tasks: tasks.length,
+      })
 
       if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
       if (
@@ -479,6 +486,7 @@ export namespace SessionPrompt {
 
       // pending compaction
       if (task?.type === "compaction") {
+        log.debug("compaction task", { auto: task.auto })
         const result = await SessionCompaction.process({
           messages: msgs,
           parentID: lastUser.id,
@@ -496,6 +504,7 @@ export namespace SessionPrompt {
         lastFinished.summary !== true &&
         (await SessionCompaction.isOverflow({ tokens: lastFinished.tokens, model }))
       ) {
+        log.info("overflow", { tokens: lastFinished.tokens })
         await SessionCompaction.create({
           sessionID,
           agent: lastUser.agent,
@@ -505,7 +514,6 @@ export namespace SessionPrompt {
         continue
       }
 
-      // normal processing
       const agent = await Agent.get(lastUser.agent)
       const maxSteps = agent.steps ?? Infinity
       const isLastStep = step >= maxSteps
@@ -562,6 +570,16 @@ export namespace SessionPrompt {
 
       await Plugin.trigger("experimental.chat.messages.transform", {}, { messages: sessionMessages })
 
+      // Debug: log messages being sent to LLM
+      log.debug("llm messages", {
+        count: sessionMessages.length,
+        messageIds: sessionMessages.map((m) => m.info.id),
+        firstMessageId: sessionMessages[0]?.info.id,
+        hasCompactionSummary: sessionMessages.some(
+          (m) => m.info.role === "assistant" && (m.info as any).summary === true,
+        ),
+      })
+
       const result = await processor.process({
         user: lastUser,
         agent,
@@ -594,12 +612,31 @@ export namespace SessionPrompt {
       continue
     }
     SessionCompaction.prune({ sessionID })
+
+    // Check if there are queued requests - their user messages are already created
+    // and need processing. We need to grab them before defer() runs cancel().
+    const queued = state()[sessionID]?.callbacks ?? []
+    if (queued.length > 0) {
+      // Clear callbacks so cancel() doesn't reject them
+      state()[sessionID].callbacks = []
+      // Schedule re-entry after this function exits (and defer runs cancel)
+      // Use setImmediate to let defer() clear state first, then re-enter loop
+      setImmediate(async () => {
+        const result = await loop(sessionID)
+        for (const q of queued) {
+          q.resolve(result)
+        }
+      })
+      // Return last assistant for now - queued requests will get their real response
+      for await (const item of MessageV2.stream(sessionID)) {
+        if (item.info.role === "user") continue
+        return item
+      }
+    }
+
+    // No queued requests - return last assistant as before
     for await (const item of MessageV2.stream(sessionID)) {
       if (item.info.role === "user") continue
-      const queued = state()[sessionID]?.callbacks ?? []
-      for (const q of queued) {
-        q.resolve(item)
-      }
       return item
     }
     throw new Error("Impossible")
