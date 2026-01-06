@@ -354,7 +354,8 @@ export function FileViewer(props: FileViewerProps) {
     // Edit mode handling
     if (editMode() && textareaRef) {
       // ctrl+/: toggle editor mode (standard/vi)
-      if (evt.name === "\u001f" || evt.sequence === "\u001f") {
+      // Some terminals send \u001f, others send "/" with ctrl flag
+      if (evt.name === "\u001f" || evt.sequence === "\u001f" || (evt.name === "/" && evt.ctrl)) {
         evt.preventDefault()
         const newMode = editorMode() === "vi" ? "standard" : "vi"
         setEditorMode(newMode)

@@ -1048,15 +1048,15 @@ export function useViBasic(options: ViBasicOptions): ViBasicResult {
 
     // Search commands (only for full mode, not prompt)
     if (mode === "full") {
-      // / - start forward search
-      if (key === "/") {
+      // / - start forward search (but not ctrl+/ which is a global keybind)
+      if (key === "/" && !evt.ctrl && !evt.meta) {
         setSearchMode(true)
         setSearchBuffer("")
         setSearchDirection("forward")
         return handled()
       }
       // ? - start backward search
-      if (key === "?") {
+      if (key === "?" && !evt.ctrl && !evt.meta) {
         setSearchMode(true)
         setSearchBuffer("")
         setSearchDirection("backward")
