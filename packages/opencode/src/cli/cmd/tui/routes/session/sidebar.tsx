@@ -11,8 +11,13 @@ import { useKeybind } from "../../context/keybind"
 import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
+import { ProjectFiles } from "./project-files"
 
-export function Sidebar(props: { sessionID: string }) {
+export function Sidebar(props: {
+  sessionID: string
+  onFileSelect?: (filePath: string) => void
+  activeFile?: string | null
+}) {
   const sync = useSync()
   const { theme } = useTheme()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
@@ -20,11 +25,15 @@ export function Sidebar(props: { sessionID: string }) {
   const todo = createMemo(() => sync.data.todo[props.sessionID] ?? [])
   const messages = createMemo(() => sync.data.message[props.sessionID] ?? [])
 
+  // worktree = git project root (for Modified Files)
+  const worktree = createMemo(() => sync.data.path.worktree || sync.data.path.directory || process.cwd())
+
   const [expanded, setExpanded] = createStore({
     mcp: true,
     diff: true,
     todo: true,
     lsp: true,
+    files: false,
   })
 
   // Sort MCP servers alphabetically for consistent display order
@@ -219,6 +228,12 @@ export function Sidebar(props: { sessionID: string }) {
                 </Show>
               </box>
             </Show>
+            <ProjectFiles
+              expanded={expanded.files}
+              onToggle={() => setExpanded("files", !expanded.files)}
+              onFileClick={(filePath) => props.onFileSelect?.(filePath)}
+              activeFile={props.activeFile ?? null}
+            />
             <Show when={diff().length > 0}>
               <box>
                 <box
@@ -236,17 +251,24 @@ export function Sidebar(props: { sessionID: string }) {
                 <Show when={diff().length <= 2 || expanded.diff}>
                   <For each={diff() || []}>
                     {(item) => {
-                      const file = createMemo(() => {
+                      const displayName = createMemo(() => {
                         const splits = item.file.split(path.sep).filter(Boolean)
                         const last = splits.at(-1)!
                         const rest = splits.slice(0, -1).join(path.sep)
                         if (!rest) return last
                         return Locale.truncateMiddle(rest, 30 - last.length) + "/" + last
                       })
+                      const isActive = createMemo(() => props.activeFile === item.file)
                       return (
-                        <box flexDirection="row" gap={1} justifyContent="space-between">
-                          <text fg={theme.textMuted} wrapMode="char">
-                            {file()}
+                        <box
+                          flexDirection="row"
+                          gap={1}
+                          justifyContent="space-between"
+                          onMouseDown={() => props.onFileSelect?.(path.join(worktree(), item.file))}
+                          backgroundColor={isActive() ? theme.backgroundElement : undefined}
+                        >
+                          <text fg={isActive() ? theme.text : theme.textMuted} wrapMode="char">
+                            {displayName()}
                           </text>
                           <box flexDirection="row" gap={1} flexShrink={0}>
                             <Show when={item.additions}>
