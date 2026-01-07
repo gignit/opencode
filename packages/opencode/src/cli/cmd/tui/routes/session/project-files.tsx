@@ -183,6 +183,17 @@ export function ProjectFiles(props: ProjectFilesProps) {
     )
   }
 
+  // Get virtual files (like [PROMPT]) from openFiles
+  const virtualFiles = createMemo(() =>
+    (props.openFiles ?? [])
+      .filter((f) => f.startsWith("["))
+      .map((f) => ({
+        name: f,
+        path: f,
+        type: "file" as const,
+      })),
+  )
+
   return (
     <box>
       <box flexDirection="row" gap={1} onMouseDown={handleToggle} flexShrink={0}>
@@ -199,6 +210,7 @@ export function ProjectFiles(props: ProjectFilesProps) {
         </Show>
         <Show when={!rootLoading()}>
           <box>
+            <For each={virtualFiles()}>{(entry) => <TreeNode entry={entry} depth={0} />}</For>
             <For each={rootEntries()}>{(entry) => <TreeNode entry={entry} depth={0} />}</For>
           </box>
         </Show>

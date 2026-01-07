@@ -212,8 +212,8 @@ export function Session() {
     }
   }
 
-  // Get all open file paths for sidebar highlighting (exclude virtual)
-  const openFilePaths = () => [...panels().values()].filter((p) => !p.virtual && p.filePath).map((p) => p.filePath)
+  // Get all open file paths for sidebar highlighting (includes virtual like [PROMPT])
+  const openFilePaths = () => [...panels().values()].map((p) => p.filePath)
 
   // Track which files have unsaved changes
   const [modifiedFiles, setModifiedFiles] = createSignal<Set<string>>(new Set())
@@ -226,10 +226,10 @@ export function Session() {
     })
   }
 
-  // Get focused file path for sidebar active indicator
+  // Get focused file path for sidebar active indicator (includes virtual like [PROMPT])
   const focusedFilePath = () => {
     const panel = focusedPanel()
-    return panel?.virtual ? null : (panel?.filePath ?? null)
+    return panel?.filePath ?? null
   }
 
   const wide = createMemo(() => dimensions().width > 120)
