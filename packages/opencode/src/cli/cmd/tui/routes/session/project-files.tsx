@@ -49,6 +49,7 @@ interface ProjectFilesProps {
   focusedFile?: string | null
   onCreateVirtualPrompt?: () => void
   onDeleteVirtualPrompt?: (filePath: string) => void
+  onLoadSessionFiles?: () => void
 }
 
 export function ProjectFiles(props: ProjectFilesProps) {
@@ -188,18 +189,31 @@ export function ProjectFiles(props: ProjectFilesProps) {
     )
   }
 
-  // Get virtual prompt files from openFiles (prompt-timestamp format)
-  const virtualFiles = createMemo(() => (props.openFiles ?? []).filter((f) => f.startsWith("prompt-")))
+  // Get session prompt files from .git/opencode-session/
+  const virtualFiles = createMemo(() => (props.openFiles ?? []).filter((f) => f.includes(".git/opencode-session/")))
+
+  // Extract display name from path (just the filename)
+  const getDisplayName = (filePath: string) => {
+    return filePath.split("/").pop() ?? filePath
+  }
 
   const [sessionExpanded, setSessionExpanded] = createSignal(false)
   const dialog = useDialog()
 
+  // Auto-expand session when virtual files exist, collapse when empty
   // Auto-expand session when virtual files exist, collapse when empty
   createEffect(() => {
     if (virtualFiles().length > 0) {
       setSessionExpanded(true)
     } else {
       setSessionExpanded(false)
+    }
+  })
+
+  // Load session files when expanded
+  createEffect(() => {
+    if (sessionExpanded()) {
+      props.onLoadSessionFiles?.()
     }
   })
 
@@ -263,6 +277,7 @@ export function ProjectFiles(props: ProjectFilesProps) {
                       if (isFocused()) return theme.text
                       return theme.textMuted
                     }
+                    const displayName = getDisplayName(filePath)
                     return (
                       <box
                         flexDirection="row"
@@ -271,8 +286,8 @@ export function ProjectFiles(props: ProjectFilesProps) {
                         backgroundColor={isOpen() ? theme.backgroundElement : undefined}
                       >
                         <text fg={color()} onMouseUp={() => props.onFileClick(filePath)}>
-                          <Show when={isFocused()} fallback={filePath}>
-                            <b>{filePath}</b>
+                          <Show when={isFocused()} fallback={displayName}>
+                            <b>{displayName}</b>
                           </Show>
                         </text>
                         <text fg={theme.textMuted} onMouseUp={() => handleDeleteVirtual(filePath)}>

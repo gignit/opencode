@@ -213,31 +213,165 @@ export function Session() {
   }
 
   // Get all open file paths for sidebar highlighting (includes virtual prompts)
-  const openFilePaths = () => [...panels().values()].map((p) => p.filePath)
+  // Combine open panels with known session files from disk
+  const openFilePaths = () => {
+    const panelPaths = [...panels().values()].map((p) => p.filePath)
+    const diskFiles = sessionFiles()
+    // Merge, avoiding duplicates
+    const all = new Set([...panelPaths, ...diskFiles])
+    return [...all]
+  }
 
-  // Create a new virtual prompt with timestamp
-  const createVirtualPrompt = (content = "") => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)
-    const name = `prompt-${timestamp}`
-    openPanel(name, {
+  // Get git worktree path if available
+  const gitRoot = () => sync.data.path.worktree
+  const sessionDir = () => {
+    const root = gitRoot()
+    return root ? `${root}/.git/opencode-session` : null
+  }
+
+  // Track session files from disk
+  const [sessionFiles, setSessionFiles] = createSignal<string[]>([])
+
+  // Load existing session files from .git/opencode-session/
+  const loadSessionFiles = async () => {
+    const dir = sessionDir()
+    if (!dir) return
+    const fs = await import("node:fs/promises")
+    const nodePath = await import("node:path")
+    const entries = await fs.readdir(dir).catch(() => [] as string[])
+    const files = entries.filter((f) => f.startsWith("prompt-") && f.endsWith(".md")).map((f) => nodePath.join(dir, f))
+    setSessionFiles(files)
+  }
+
+  // Open an existing session file
+  const openSessionFile = async (filePath: string) => {
+    const fs = await import("node:fs/promises")
+    const content = await fs.readFile(filePath, "utf-8").catch(() => "")
+    const name = filePath.split("/").pop()?.replace(/\.md$/, "") ?? filePath
+    openPanel(filePath, {
       virtual: true,
       virtualContent: content,
       virtualTitle: name,
-      onSaveContent: (text: string) => {
+      onSaveContent: async (text: string) => {
+        await fs.writeFile(filePath, text)
         prompt?.set({ input: text, parts: [] })
+        const panel = panels().get(filePath)
+        if (panel) closePanel(panel.id)
         prompt?.focus()
-        // Don't close - keep the prompt for reference
       },
     })
-    return name
   }
 
-  // Delete a virtual prompt with confirmation
-  const deleteVirtualPrompt = (filePath: string) => {
+  // Get the next sequential prompt number
+  const getNextPromptNumber = async () => {
+    const dir = sessionDir()
+    if (!dir) return 1
+    const fs = await import("node:fs/promises")
+    const entries = await fs.readdir(dir).catch(() => [] as string[])
+    const numbers = entries
+      .filter((f) => f.startsWith("prompt-") && f.endsWith(".md"))
+      .map((f) => parseInt(f.replace("prompt-", "").replace(".md", ""), 10))
+      .filter((n) => !isNaN(n))
+    return numbers.length > 0 ? Math.max(...numbers) + 1 : 1
+  }
+
+  // Get the most recent prompt file (by modification time)
+  const getMostRecentPrompt = async () => {
+    const dir = sessionDir()
+    if (!dir) return null
+    const fs = await import("node:fs/promises")
+    const nodePath = await import("node:path")
+    const entries = await fs.readdir(dir).catch(() => [] as string[])
+    const promptFiles = entries.filter((f) => f.startsWith("prompt-") && f.endsWith(".md"))
+    if (promptFiles.length === 0) return null
+    // Get file stats and sort by mtime
+    const stats = await Promise.all(
+      promptFiles.map(async (f) => {
+        const filePath = nodePath.join(dir, f)
+        const stat = await fs.stat(filePath).catch(() => null)
+        return { filePath, mtime: stat?.mtime?.getTime() ?? 0 }
+      }),
+    )
+    stats.sort((a, b) => b.mtime - a.mtime)
+    return stats[0]?.filePath ?? null
+  }
+
+  // Create a new virtual prompt with sequential numbering
+  const createVirtualPrompt = async (content = "") => {
+    const dir = sessionDir()
+
+    if (dir) {
+      // Persisted mode - write to .git/opencode-session/
+      const fs = await import("node:fs/promises")
+      const nodePath = await import("node:path")
+      await fs.mkdir(dir, { recursive: true })
+      const num = await getNextPromptNumber()
+      const name = `prompt-${String(num).padStart(4, "0")}`
+      const filePath = nodePath.join(dir, `${name}.md`)
+      await fs.writeFile(filePath, content)
+      // Refresh session files list
+      await loadSessionFiles()
+      openPanel(filePath, {
+        virtual: true,
+        virtualContent: content,
+        virtualTitle: name,
+        onSaveContent: async (text: string) => {
+          await fs.writeFile(filePath, text)
+          prompt?.set({ input: text, parts: [] })
+          const panel = panels().get(filePath)
+          if (panel) closePanel(panel.id)
+          prompt?.focus()
+        },
+      })
+    } else {
+      // Virtual mode - no persistence, use timestamp
+      const time = new Date().toLocaleTimeString("en-US", { hour12: false }).replace(/:/g, "")
+      const name = `prompt-${time}`
+      openPanel(name, {
+        virtual: true,
+        virtualContent: content,
+        virtualTitle: name,
+        onSaveContent: (text: string) => {
+          prompt?.set({ input: text, parts: [] })
+          const panel = panels().get(name)
+          if (panel) closePanel(panel.id)
+          prompt?.focus()
+        },
+      })
+    }
+    prompt?.blur()
+  }
+
+  // Open or create a prompt for editing (ctrl+x p)
+  const openPromptEditor = async (content = "") => {
+    const dir = sessionDir()
+    if (dir) {
+      // Try to open most recent prompt
+      const recent = await getMostRecentPrompt()
+      if (recent) {
+        await openSessionFile(recent)
+        prompt?.blur()
+        return
+      }
+    }
+    // No existing prompt, create new one
+    await createVirtualPrompt(content)
+  }
+
+  // Delete a virtual prompt
+  const deleteVirtualPrompt = async (filePath: string) => {
+    // Close panel if open
     const panel = panels().get(filePath)
     if (panel) {
       closePanel(panel.id)
       updateModified(filePath, false)
+    }
+    // If it's a persisted file, delete from disk and refresh list
+    if (filePath.includes(".git/opencode-session/")) {
+      const fs = await import("node:fs/promises")
+      await fs.unlink(filePath).catch(() => {})
+      // Refresh session files list
+      setSessionFiles((files) => files.filter((f) => f !== filePath))
     }
   }
 
@@ -959,7 +1093,7 @@ export function Session() {
       category: "Prompt",
       onSelect: (dialog) => {
         const text = prompt?.current.input ?? ""
-        createVirtualPrompt(text)
+        openPromptEditor(text)
         dialog.clear()
       },
     },
@@ -1207,12 +1341,20 @@ export function Session() {
         <Show when={sidebarVisible()}>
           <Sidebar
             sessionID={route.sessionID}
-            onFileSelect={(file) => openPanel(file)}
+            onFileSelect={(file) => {
+              // If it's a session file not yet open, load it
+              if (file.includes(".git/opencode-session/") && !panels().has(file)) {
+                openSessionFile(file)
+              } else {
+                openPanel(file)
+              }
+            }}
             openFiles={openFilePaths()}
             modifiedFiles={modifiedFiles()}
             focusedFile={focusedFilePath()}
             onCreateVirtualPrompt={() => createVirtualPrompt()}
             onDeleteVirtualPrompt={deleteVirtualPrompt}
+            onLoadSessionFiles={loadSessionFiles}
           />
         </Show>
       </box>
