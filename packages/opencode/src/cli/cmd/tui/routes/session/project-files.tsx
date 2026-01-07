@@ -235,6 +235,13 @@ export function ProjectFiles(props: ProjectFilesProps) {
   const [sessionExpanded, setSessionExpanded] = createSignal(false)
   const dialog = useDialog()
   const hasFiles = () => virtualFiles().length > 0
+
+  // Auto-collapse session folder when all files are deleted
+  createEffect(() => {
+    if (!hasFiles() && sessionExpanded()) {
+      setSessionExpanded(false)
+    }
+  })
   // Check if any open file is a session file (when session folder is collapsed)
   const sessionContainsOpenFile = createMemo(() => {
     if (sessionExpanded()) return false
@@ -298,7 +305,15 @@ export function ProjectFiles(props: ProjectFilesProps) {
                 <box
                   flexDirection="row"
                   gap={1}
-                  onMouseUp={() => setSessionExpanded(!sessionExpanded())}
+                  onMouseUp={() => {
+                    if (!sessionExpanded() && !hasFiles()) {
+                      // Expanding empty session folder - auto-create a prompt
+                      props.onCreateVirtualPrompt?.()
+                      setSessionExpanded(true)
+                    } else {
+                      setSessionExpanded(!sessionExpanded())
+                    }
+                  }}
                   backgroundColor={sessionContainsOpenFile() ? theme.backgroundElement : undefined}
                 >
                   <text fg={hasFiles() || sessionContainsOpenFile() ? theme.text : theme.textMuted}>
