@@ -262,17 +262,29 @@ export function Sidebar(props: {
                         if (!rest) return last
                         return Locale.truncateMiddle(rest, 30 - last.length) + "/" + last
                       })
-                      const isActive = createMemo(() => props.openFiles?.some((f) => f.endsWith(item.file)) ?? false)
+                      const isOpen = createMemo(() => props.openFiles?.some((f) => f.endsWith(item.file)) ?? false)
+                      const isFocused = createMemo(() => props.focusedFile?.endsWith(item.file) ?? false)
+                      const isModified = createMemo(() => {
+                        const match = props.openFiles?.find((f) => f.endsWith(item.file))
+                        return match ? (props.modifiedFiles?.has(match) ?? false) : false
+                      })
+                      const color = () => {
+                        if (isModified()) return theme.accent
+                        if (isFocused()) return theme.text
+                        return theme.textMuted
+                      }
                       return (
                         <box
                           flexDirection="row"
                           gap={1}
                           justifyContent="space-between"
                           onMouseDown={() => props.onFileSelect?.(item.file)}
-                          backgroundColor={isActive() ? theme.backgroundElement : undefined}
+                          backgroundColor={isOpen() ? theme.backgroundElement : undefined}
                         >
-                          <text fg={isActive() ? theme.text : theme.textMuted} wrapMode="char">
-                            {displayName()}
+                          <text fg={color()} wrapMode="char">
+                            <Show when={isFocused()} fallback={displayName()}>
+                              <b>{displayName()}</b>
+                            </Show>
                           </text>
                           <box flexDirection="row" gap={1} flexShrink={0}>
                             <Show when={item.additions}>
