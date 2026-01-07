@@ -143,11 +143,11 @@ export function Session() {
   // Content panel state (file viewer)
   const [contentPanelWidth, setContentPanelWidth] = createSignal(0)
 
-  // Content panel system - Map for stable identity, separate focus tracking
+  // Content panel system - Map keyed by filePath, separate focus tracking
   type ContentPanelEntry = {
     id: string
-    type: "file" | "virtual"
-    filePath?: string
+    filePath: string
+    virtual?: boolean
     virtualContent?: string
     virtualTitle?: string
     onSaveContent?: (content: string) => void
@@ -161,35 +161,48 @@ export function Session() {
     return id ? panels().get(id) : undefined
   }
 
-  const openFile = (filePath: string) => {
-    const existing = [...panels().values()].find((p) => p.type === "file" && p.filePath === filePath)
+  const openPanel = (
+    filePath: string,
+    opts?: {
+      virtual?: boolean
+      virtualContent?: string
+      virtualTitle?: string
+      onSaveContent?: (content: string) => void
+    },
+  ) => {
+    const existing = panels().get(filePath)
     if (existing) {
+      // Update virtual content if provided (for prompt edit with new content)
+      if (opts?.virtualContent !== undefined) {
+        setPanels((p) => {
+          const m = new Map(p)
+          m.set(filePath, { ...existing, ...opts })
+          return m
+        })
+      }
       setFocusedId(existing.id)
-      return
+      return existing.id
     }
     const id = crypto.randomUUID()
-    const entry: ContentPanelEntry = { id, type: "file", filePath }
-    setPanels((p) => new Map(p).set(id, entry))
+    const entry: ContentPanelEntry = { id, filePath, ...opts }
+    setPanels((p) => new Map(p).set(filePath, entry))
     setCloseOrder((o) => [...o, id])
     setFocusedId(id)
-  }
-
-  const openVirtualPanel = (entry: Omit<ContentPanelEntry, "id" | "type">) => {
-    const id = crypto.randomUUID()
-    const panel: ContentPanelEntry = { ...entry, id, type: "virtual" }
-    setPanels((p) => new Map(p).set(id, panel))
-    setCloseOrder((o) => [...o, id])
-    setFocusedId(id)
+    return id
   }
 
   const closePanel = (id: string) => {
     const order = closeOrder()
     const idx = order.indexOf(id)
-    setPanels((p) => {
-      const m = new Map(p)
-      m.delete(id)
-      return m
-    })
+    // Find and remove by id
+    const entry = [...panels().entries()].find(([, v]) => v.id === id)
+    if (entry) {
+      setPanels((p) => {
+        const m = new Map(p)
+        m.delete(entry[0])
+        return m
+      })
+    }
     setCloseOrder((o) => o.filter((i) => i !== id))
     // If closing focused panel, focus previous in order
     if (focusedId() === id) {
@@ -198,9 +211,8 @@ export function Session() {
     }
   }
 
-  // Get all open file paths for sidebar highlighting
-  const openFilePaths = () =>
-    [...panels().values()].filter((p) => p.type === "file" && p.filePath).map((p) => p.filePath!)
+  // Get all open file paths for sidebar highlighting (exclude virtual)
+  const openFilePaths = () => [...panels().values()].filter((p) => !p.virtual && p.filePath).map((p) => p.filePath)
 
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => {
@@ -903,13 +915,14 @@ export function Session() {
       category: "Prompt",
       onSelect: (dialog) => {
         const text = prompt?.current.input ?? ""
-        const id = crypto.randomUUID()
-        openVirtualPanel({
+        openPanel("[PROMPT]", {
+          virtual: true,
           virtualContent: text,
           virtualTitle: "Edit Prompt",
           onSaveContent: (content: string) => {
             prompt?.set({ input: content, parts: [] })
-            closePanel(id)
+            const panel = panels().get("[PROMPT]")
+            if (panel) closePanel(panel.id)
             prompt?.focus()
           },
         })
@@ -1112,7 +1125,7 @@ export function Session() {
               <For each={[...panels().values()]}>
                 {(panel) => (
                   <ContentPanel
-                    filePath={panel.type === "file" ? (panel.filePath ?? null) : null}
+                    filePath={panel.virtual ? null : panel.filePath}
                     sessionID={route.sessionID}
                     totalWidth={contentPanelTotalWidth()}
                     onClose={() => {
@@ -1156,7 +1169,7 @@ export function Session() {
           <Toast />
         </box>
         <Show when={sidebarVisible()}>
-          <Sidebar sessionID={route.sessionID} onFileSelect={(file) => openFile(file)} openFiles={openFilePaths()} />
+          <Sidebar sessionID={route.sessionID} onFileSelect={(file) => openPanel(file)} openFiles={openFilePaths()} />
         </Show>
       </box>
     </context.Provider>
