@@ -14,6 +14,7 @@ interface ContentPanelProps {
   onWidthChange?: (width: number) => void
   onEnterEdit?: () => void
   onExitEdit?: () => void
+  onModifiedChange?: (modified: boolean) => void
   // Virtual content mode (for prompt editing)
   virtualContent?: string
   virtualTitle?: string
@@ -100,6 +101,7 @@ export function ContentPanel(props: ContentPanelProps) {
             onFileChange={(file: string) => setDisplayedFile(file)}
             onEnterEdit={props.onEnterEdit}
             onExitEdit={props.onExitEdit}
+            onModifiedChange={props.onModifiedChange}
             virtualContent={props.virtualContent}
             virtualTitle={props.virtualTitle}
             onSaveContent={props.onSaveContent}

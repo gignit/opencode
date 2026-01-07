@@ -1,0 +1,195 @@
+{
+  "version": "2.1",
+  "project": {
+    "name": "opencode-project-files-viewer-editor",
+    "description": "Code intelligence for opencode-project-files-viewer-editor"
+  },
+  "code_directories": [
+    {
+      "path": "github",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package github"
+    },
+    {
+      "path": "infra",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package infra"
+    },
+    {
+      "path": "nix",
+      "language": "nix",
+      "extension": null,
+      "type": "library",
+      "summary": "Code directory nix"
+    },
+    {
+      "path": "script",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package script"
+    },
+    {
+      "path": "nix/scripts",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package scripts"
+    },
+    {
+      "path": "packages/app",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package app",
+      "has_tests": true
+    },
+    {
+      "path": "packages/console",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package console"
+    },
+    {
+      "path": "packages/desktop",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package desktop"
+    },
+    {
+      "path": "packages/enterprise",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package enterprise"
+    },
+    {
+      "path": "packages/function",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package function"
+    },
+    {
+      "path": "packages/opencode",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package opencode"
+    },
+    {
+      "path": "packages/plugin",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package plugin"
+    },
+    {
+      "path": "packages/script",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package script"
+    },
+    {
+      "path": "packages/slack",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package slack"
+    },
+    {
+      "path": "packages/ui",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package ui"
+    },
+    {
+      "path": "packages/util",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package util"
+    },
+    {
+      "path": "packages/web",
+      "language": [
+        "javascript",
+        "typescript"
+      ],
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Javascript/Typescript package web"
+    },
+    {
+      "path": "sdks/vscode",
+      "language": [
+        "javascript",
+        "typescript"
+      ],
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Javascript/Typescript package vscode"
+    },
+    {
+      "path": "packages/desktop/src-tauri",
+      "language": "rust",
+      "extension": null,
+      "type": "library",
+      "summary": "Code directory packages/desktop/src-tauri"
+    },
+    {
+      "path": "packages/sdk/js",
+      "language": "typescript",
+      "extension": "typescript",
+      "type": "library",
+      "summary": "Typescript package js"
+    }
+  ],
+  "ignore": [
+    "tests/**",
+    "**/__tests__/**",
+    "**/testdata/**",
+    "**/fixtures/**",
+    "**/examples/**",
+    "docs_src/**",
+    "docs/**",
+    "doc/**",
+    "**/*.md",
+    "dist/**",
+    "build/**",
+    "bin/**",
+    "node_modules/**",
+    "vendor/**",
+    "**/generated/**",
+    "**/.DS_Store",
+    ".github/**",
+    ".vscode/**",
+    ".idea/**",
+    ".env*",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.test.js",
+    "**/*.spec.js",
+    "**/coverage/**"
+  ],
+  "coder": {
+    "extension_paths": [],
+    "default_format": "compact"
+  },
+  "extensions": {
+    "typescript": {
+      "enabled": true,
+      "executable": "coder-typescript-main.ts"
+    }
+  }
+}

@@ -25,6 +25,7 @@ interface FileViewerProps {
   onFileChange?: (filePath: string) => void
   onEnterEdit?: () => void
   onExitEdit?: () => void
+  onModifiedChange?: (modified: boolean) => void
   // Virtual content mode (for prompt editing)
   virtualContent?: string
   virtualTitle?: string
@@ -73,11 +74,7 @@ export function FileViewer(props: FileViewerProps) {
       const w = containerRef.width
       const xFromRight = w - localX
       if (xFromRight <= 3) {
-        if (editMode() && hasChanges()) {
-          toast.show({ message: "edit canceled", variant: "info" })
-        }
-        discardChanges()
-        props.onClose()
+        confirmDiscard(() => props.onClose())
         e.stopPropagation()
       } else if (xFromRight <= 10) {
         if (!editMode()) toggleEdit()
@@ -125,6 +122,11 @@ export function FileViewer(props: FileViewerProps) {
   })
 
   const hasChanges = createMemo(() => content() !== originalContent())
+
+  // Report modification state changes
+  createEffect(() => {
+    props.onModifiedChange?.(hasChanges())
+  })
 
   const filetype = createMemo(() => {
     const ext = path.extname(currentFile()).slice(1).toLowerCase()
@@ -322,6 +324,20 @@ export function FileViewer(props: FileViewerProps) {
     }
   }
 
+  const confirmDiscard = (onConfirm?: () => void) => {
+    if (!hasChanges()) {
+      discardChanges()
+      onConfirm?.()
+      return
+    }
+    DialogConfirm.show(dialog, "Unsaved Changes", "Discard changes?").then((confirmed) => {
+      if (confirmed) {
+        discardChanges()
+        onConfirm?.()
+      }
+    })
+  }
+
   const openFile = () => {
     const file = fullPath()
     const opts = { stdout: "ignore" as const, stderr: "ignore" as const }
@@ -375,7 +391,7 @@ export function FileViewer(props: FileViewerProps) {
     if (evt.name === "c" && evt.ctrl) {
       evt.preventDefault()
       if (editMode()) {
-        discardChanges()
+        confirmDiscard()
       } else {
         props.onClose()
       }
@@ -492,7 +508,7 @@ export function FileViewer(props: FileViewerProps) {
             fg={theme.warning}
             onMouseUp={(e: MouseEvent) => {
               e.stopPropagation()
-              discardChanges()
+              confirmDiscard()
             }}
             visible={editMode()}
           >
@@ -533,11 +549,7 @@ export function FileViewer(props: FileViewerProps) {
             fg={theme.textMuted}
             onMouseUp={(e: MouseEvent) => {
               e.stopPropagation()
-              if (editMode() && hasChanges()) {
-                toast.show({ message: "edit canceled", variant: "info" })
-              }
-              discardChanges()
-              props.onClose()
+              confirmDiscard(() => props.onClose())
             }}
           >
             [x]

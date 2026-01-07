@@ -158,7 +158,8 @@ export function Session() {
 
   const focusedPanel = () => {
     const id = focusedId()
-    return id ? panels().get(id) : undefined
+    if (!id) return undefined
+    return [...panels().values()].find((p) => p.id === id)
   }
 
   const openPanel = (
@@ -213,6 +214,23 @@ export function Session() {
 
   // Get all open file paths for sidebar highlighting (exclude virtual)
   const openFilePaths = () => [...panels().values()].filter((p) => !p.virtual && p.filePath).map((p) => p.filePath)
+
+  // Track which files have unsaved changes
+  const [modifiedFiles, setModifiedFiles] = createSignal<Set<string>>(new Set())
+  const updateModified = (filePath: string, modified: boolean) => {
+    setModifiedFiles((s) => {
+      const next = new Set(s)
+      if (modified) next.add(filePath)
+      else next.delete(filePath)
+      return next
+    })
+  }
+
+  // Get focused file path for sidebar active indicator
+  const focusedFilePath = () => {
+    const panel = focusedPanel()
+    return panel?.virtual ? null : (panel?.filePath ?? null)
+  }
 
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => {
@@ -1125,11 +1143,12 @@ export function Session() {
               <For each={[...panels().values()]}>
                 {(panel) => (
                   <ContentPanel
-                    filePath={panel.virtual ? null : panel.filePath}
+                    filePath={panel.filePath}
                     sessionID={route.sessionID}
                     totalWidth={contentPanelTotalWidth()}
                     onClose={() => {
                       closePanel(panel.id)
+                      updateModified(panel.filePath, false)
                       if (panels().size === 0) {
                         prompt?.focus()
                       }
@@ -1137,6 +1156,7 @@ export function Session() {
                     onWidthChange={setContentPanelWidth}
                     onEnterEdit={() => prompt?.blur()}
                     onExitEdit={() => prompt?.focus()}
+                    onModifiedChange={(modified) => updateModified(panel.filePath, modified)}
                     virtualContent={panel.virtualContent}
                     virtualTitle={panel.virtualTitle}
                     onSaveContent={panel.onSaveContent}
@@ -1169,7 +1189,13 @@ export function Session() {
           <Toast />
         </box>
         <Show when={sidebarVisible()}>
-          <Sidebar sessionID={route.sessionID} onFileSelect={(file) => openPanel(file)} openFiles={openFilePaths()} />
+          <Sidebar
+            sessionID={route.sessionID}
+            onFileSelect={(file) => openPanel(file)}
+            openFiles={openFilePaths()}
+            modifiedFiles={modifiedFiles()}
+            focusedFile={focusedFilePath()}
+          />
         </Show>
       </box>
     </context.Provider>

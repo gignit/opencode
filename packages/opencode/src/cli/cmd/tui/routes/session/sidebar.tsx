@@ -13,7 +13,13 @@ import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
 import { ProjectFiles } from "./project-files"
 
-export function Sidebar(props: { sessionID: string; onFileSelect?: (filePath: string) => void; openFiles?: string[] }) {
+export function Sidebar(props: {
+  sessionID: string
+  onFileSelect?: (filePath: string) => void
+  openFiles?: string[]
+  modifiedFiles?: Set<string>
+  focusedFile?: string | null
+}) {
   const sync = useSync()
   const { theme } = useTheme()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
@@ -229,6 +235,8 @@ export function Sidebar(props: { sessionID: string; onFileSelect?: (filePath: st
               onToggle={() => setExpanded("files", !expanded.files)}
               onFileClick={(filePath) => props.onFileSelect?.(filePath)}
               openFiles={props.openFiles}
+              modifiedFiles={props.modifiedFiles}
+              focusedFile={props.focusedFile}
             />
             <Show when={diff().length > 0}>
               <box>

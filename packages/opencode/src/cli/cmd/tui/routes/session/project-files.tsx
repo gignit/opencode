@@ -42,6 +42,8 @@ interface ProjectFilesProps {
   onToggle: () => void
   onFileClick: (filePath: string) => void
   openFiles?: string[]
+  modifiedFiles?: Set<string>
+  focusedFile?: string | null
 }
 
 export function ProjectFiles(props: ProjectFilesProps) {
@@ -117,7 +119,9 @@ export function ProjectFiles(props: ProjectFilesProps) {
   }
 
   function TreeNode(nodeProps: { entry: FileEntry; depth: number }) {
-    const isActive = createMemo(() => props.openFiles?.includes(nodeProps.entry.path) ?? false)
+    const isOpen = createMemo(() => props.openFiles?.includes(nodeProps.entry.path) ?? false)
+    const isModified = createMemo(() => props.modifiedFiles?.has(nodeProps.entry.path) ?? false)
+    const isFocused = createMemo(() => props.focusedFile === nodeProps.entry.path)
     const indent = nodeProps.depth * 2
 
     if (nodeProps.entry.type === "directory") {
@@ -156,15 +160,24 @@ export function ProjectFiles(props: ProjectFilesProps) {
       )
     }
 
+    // File styling: focused = white + bold, modified + focused = accent + bold, modified = accent, others = muted
+    const color = () => {
+      if (isModified()) return theme.accent
+      if (isFocused()) return theme.text
+      return theme.textMuted
+    }
+
     return (
       <box
         flexDirection="row"
         paddingLeft={indent + 2}
         onMouseUp={() => props.onFileClick(nodeProps.entry.path)}
-        backgroundColor={isActive() ? theme.backgroundElement : undefined}
+        backgroundColor={isOpen() ? theme.backgroundElement : undefined}
       >
-        <text fg={isActive() ? theme.text : theme.textMuted} wrapMode="char">
-          {nodeProps.entry.name}
+        <text fg={color()} wrapMode="char">
+          <Show when={isFocused()} fallback={nodeProps.entry.name}>
+            <b>{nodeProps.entry.name}</b>
+          </Show>
         </text>
       </box>
     )
