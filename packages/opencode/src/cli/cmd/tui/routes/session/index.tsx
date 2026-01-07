@@ -141,10 +141,9 @@ export function Session() {
   const [diffWrapMode, setDiffWrapMode] = createSignal<"word" | "none">("word")
   const [animationsEnabled, setAnimationsEnabled] = createSignal(kv.get("animations_enabled", true))
   // Content panel state (file viewer)
-  const [activeFile, setActiveFile] = createSignal<string | null>(null)
   const [contentPanelWidth, setContentPanelWidth] = createSignal(0)
 
-  // Content panel stack - each entry is independent
+  // Content panel system - Map for stable identity, separate focus tracking
   type ContentPanelEntry = {
     id: string
     type: "file" | "virtual"
@@ -153,40 +152,55 @@ export function Session() {
     virtualTitle?: string
     onSaveContent?: (content: string) => void
   }
-  const [contentStack, setContentStack] = createSignal<ContentPanelEntry[]>([])
-  const topPanel = () => contentStack()[contentStack().length - 1]
+  const [panels, setPanels] = createSignal<Map<string, ContentPanelEntry>>(new Map())
+  const [closeOrder, setCloseOrder] = createSignal<string[]>([]) // tracks order for "close reveals previous"
+  const [focusedId, setFocusedId] = createSignal<string | null>(null)
 
-  const debugLog = async (msg: string) => {
-    const stack = contentStack()
-    const info = stack.map((p) => `{id:${p.id.slice(0, 8)},type:${p.type},file:${p.filePath ?? "none"}}`).join(", ")
-    const fs = await import("node:fs")
-    fs.appendFileSync("/tmp/panel-debug.log", `${Date.now()} ${msg} | stack=[${info}] len=${stack.length}\n`)
+  const focusedPanel = () => {
+    const id = focusedId()
+    return id ? panels().get(id) : undefined
   }
 
-  const pushContentPanel = (entry: Omit<ContentPanelEntry, "id">) => {
-    const id = crypto.randomUUID()
-    debugLog(`PUSH BEFORE type=${entry.type} file=${entry.filePath ?? "virtual"}`)
-    setContentStack((stack) => [...stack, { ...entry, id }])
-    debugLog(`PUSH AFTER type=${entry.type} file=${entry.filePath ?? "virtual"}`)
-  }
-  const popContentPanel = () => {
-    debugLog("POP BEFORE")
-    setContentStack((stack) => stack.slice(0, -1))
-    debugLog("POP AFTER")
-  }
   const openFile = (filePath: string) => {
-    // If this file is already at the top, do nothing
-    const top = topPanel()
-    if (top?.type === "file" && top.filePath === filePath) return
-    // Always push new - don't try to reorder existing panels
-    pushContentPanel({ type: "file", filePath })
+    const existing = [...panels().values()].find((p) => p.type === "file" && p.filePath === filePath)
+    if (existing) {
+      setFocusedId(existing.id)
+      return
+    }
+    const id = crypto.randomUUID()
+    const entry: ContentPanelEntry = { id, type: "file", filePath }
+    setPanels((p) => new Map(p).set(id, entry))
+    setCloseOrder((o) => [...o, id])
+    setFocusedId(id)
+  }
+
+  const openVirtualPanel = (entry: Omit<ContentPanelEntry, "id" | "type">) => {
+    const id = crypto.randomUUID()
+    const panel: ContentPanelEntry = { ...entry, id, type: "virtual" }
+    setPanels((p) => new Map(p).set(id, panel))
+    setCloseOrder((o) => [...o, id])
+    setFocusedId(id)
+  }
+
+  const closePanel = (id: string) => {
+    const order = closeOrder()
+    const idx = order.indexOf(id)
+    setPanels((p) => {
+      const m = new Map(p)
+      m.delete(id)
+      return m
+    })
+    setCloseOrder((o) => o.filter((i) => i !== id))
+    // If closing focused panel, focus previous in order
+    if (focusedId() === id) {
+      const prev = order[idx - 1] ?? order[idx + 1] ?? null
+      setFocusedId(prev)
+    }
   }
 
   // Get all open file paths for sidebar highlighting
   const openFilePaths = () =>
-    contentStack()
-      .filter((p) => p.type === "file" && p.filePath)
-      .map((p) => p.filePath!)
+    [...panels().values()].filter((p) => p.type === "file" && p.filePath).map((p) => p.filePath!)
 
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => {
@@ -889,16 +903,13 @@ export function Session() {
       category: "Prompt",
       onSelect: (dialog) => {
         const text = prompt?.current.input ?? ""
-        debugLog("PROMPT_EDIT onSelect - pushing virtual panel")
-        pushContentPanel({
-          type: "virtual",
+        const id = crypto.randomUUID()
+        openVirtualPanel({
           virtualContent: text,
           virtualTitle: "Edit Prompt",
-          onSaveContent: (content) => {
-            debugLog("PROMPT_EDIT onSaveContent - about to pop")
+          onSaveContent: (content: string) => {
             prompt?.set({ input: content, parts: [] })
-            popContentPanel()
-            debugLog("PROMPT_EDIT onSaveContent - after pop")
+            closePanel(id)
             prompt?.focus()
           },
         })
@@ -1098,32 +1109,27 @@ export function Session() {
                   )}
                 </For>
               </scrollbox>
-              <For each={contentStack()}>
-                {(panel, index) => {
-                  const isTop = () => index() === contentStack().length - 1
-                  return (
-                    <ContentPanel
-                      filePath={panel.type === "file" ? (panel.filePath ?? null) : null}
-                      sessionID={route.sessionID}
-                      totalWidth={contentPanelTotalWidth()}
-                      onClose={() => {
-                        debugLog(`FOR onClose panel.id=${panel.id.slice(0, 8)} panel.type=${panel.type}`)
-                        popContentPanel()
-                        if (contentStack().length === 0) {
-                          prompt?.focus()
-                        }
-                      }}
-                      onActiveFileChange={setActiveFile}
-                      onWidthChange={setContentPanelWidth}
-                      onEnterEdit={() => prompt?.blur()}
-                      onExitEdit={() => prompt?.focus()}
-                      virtualContent={panel.virtualContent}
-                      virtualTitle={panel.virtualTitle}
-                      onSaveContent={panel.onSaveContent}
-                      visible={isTop()}
-                    />
-                  )
-                }}
+              <For each={[...panels().values()]}>
+                {(panel) => (
+                  <ContentPanel
+                    filePath={panel.type === "file" ? (panel.filePath ?? null) : null}
+                    sessionID={route.sessionID}
+                    totalWidth={contentPanelTotalWidth()}
+                    onClose={() => {
+                      closePanel(panel.id)
+                      if (panels().size === 0) {
+                        prompt?.focus()
+                      }
+                    }}
+                    onWidthChange={setContentPanelWidth}
+                    onEnterEdit={() => prompt?.blur()}
+                    onExitEdit={() => prompt?.focus()}
+                    virtualContent={panel.virtualContent}
+                    virtualTitle={panel.virtualTitle}
+                    onSaveContent={panel.onSaveContent}
+                    visible={panel.id === focusedId()}
+                  />
+                )}
               </For>
             </box>
             <box flexShrink={0}>
