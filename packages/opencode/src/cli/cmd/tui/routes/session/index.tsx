@@ -175,16 +175,10 @@ export function Session() {
     debugLog("POP AFTER")
   }
   const openFile = (filePath: string) => {
-    // Check if this file is already in the stack
-    const existing = contentStack().find((p) => p.type === "file" && p.filePath === filePath)
-    if (existing) {
-      // If it's already the top, do nothing
-      if (topPanel()?.id === existing.id) return
-      // Move it to the top by removing and re-adding
-      setContentStack((stack) => [...stack.filter((p) => p.id !== existing.id), existing])
-      return
-    }
-    // Push new file panel
+    // If this file is already at the top, do nothing
+    const top = topPanel()
+    if (top?.type === "file" && top.filePath === filePath) return
+    // Always push new - don't try to reorder existing panels
     pushContentPanel({ type: "file", filePath })
   }
 
