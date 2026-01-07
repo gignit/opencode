@@ -19,6 +19,8 @@ export function Sidebar(props: {
   openFiles?: string[]
   modifiedFiles?: Set<string>
   focusedFile?: string | null
+  onCreateVirtualPrompt?: () => void
+  onDeleteVirtualPrompt?: (filePath: string) => void
 }) {
   const sync = useSync()
   const { theme } = useTheme()
@@ -237,6 +239,8 @@ export function Sidebar(props: {
               openFiles={props.openFiles}
               modifiedFiles={props.modifiedFiles}
               focusedFile={props.focusedFile}
+              onCreateVirtualPrompt={props.onCreateVirtualPrompt}
+              onDeleteVirtualPrompt={props.onDeleteVirtualPrompt}
             />
             <Show when={diff().length > 0}>
               <box>

@@ -1,7 +1,10 @@
 import { createMemo, createSignal, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
+import { createEffect } from "solid-js"
 import { useTheme } from "../../context/theme"
 import { useSync } from "@tui/context/sync"
+import { useDialog } from "../../ui/dialog"
+import { DialogConfirm } from "../../ui/dialog-confirm"
 import path from "path"
 import fs from "fs/promises"
 
@@ -44,6 +47,8 @@ interface ProjectFilesProps {
   openFiles?: string[]
   modifiedFiles?: Set<string>
   focusedFile?: string | null
+  onCreateVirtualPrompt?: () => void
+  onDeleteVirtualPrompt?: (filePath: string) => void
 }
 
 export function ProjectFiles(props: ProjectFilesProps) {
@@ -183,16 +188,28 @@ export function ProjectFiles(props: ProjectFilesProps) {
     )
   }
 
-  // Get virtual files (like [PROMPT]) from openFiles
-  const virtualFiles = createMemo(() =>
-    (props.openFiles ?? [])
-      .filter((f) => f.startsWith("["))
-      .map((f) => ({
-        name: f,
-        path: f,
-        type: "file" as const,
-      })),
-  )
+  // Get virtual prompt files from openFiles (prompt-timestamp format)
+  const virtualFiles = createMemo(() => (props.openFiles ?? []).filter((f) => f.startsWith("prompt-")))
+
+  const [sessionExpanded, setSessionExpanded] = createSignal(false)
+  const dialog = useDialog()
+
+  // Auto-expand session when virtual files exist, collapse when empty
+  createEffect(() => {
+    if (virtualFiles().length > 0) {
+      setSessionExpanded(true)
+    } else {
+      setSessionExpanded(false)
+    }
+  })
+
+  const handleDeleteVirtual = (filePath: string) => {
+    DialogConfirm.show(dialog, "Delete Prompt", `Delete "${filePath}"?`).then((confirmed) => {
+      if (confirmed) {
+        props.onDeleteVirtualPrompt?.(filePath)
+      }
+    })
+  }
 
   return (
     <box>
@@ -210,7 +227,63 @@ export function ProjectFiles(props: ProjectFilesProps) {
         </Show>
         <Show when={!rootLoading()}>
           <box>
-            <For each={virtualFiles()}>{(entry) => <TreeNode entry={entry} depth={0} />}</For>
+            {/* Session folder for virtual prompts - always visible */}
+            <box>
+              <box flexDirection="row" gap={1} justifyContent="space-between">
+                <box
+                  flexDirection="row"
+                  gap={1}
+                  onMouseUp={() => {
+                    if (virtualFiles().length === 0) {
+                      props.onCreateVirtualPrompt?.()
+                    } else {
+                      setSessionExpanded(!sessionExpanded())
+                    }
+                  }}
+                >
+                  <text fg={virtualFiles().length > 0 ? theme.text : theme.textMuted}>
+                    {sessionExpanded() ? "-" : "+"}
+                  </text>
+                  <text fg={virtualFiles().length > 0 ? theme.text : theme.textMuted}>session</text>
+                </box>
+                <Show when={sessionExpanded()}>
+                  <text fg={theme.textMuted} onMouseUp={() => props.onCreateVirtualPrompt?.()}>
+                    +
+                  </text>
+                </Show>
+              </box>
+              <Show when={sessionExpanded() && virtualFiles().length > 0}>
+                <For each={virtualFiles()}>
+                  {(filePath) => {
+                    const isOpen = createMemo(() => props.openFiles?.includes(filePath) ?? false)
+                    const isModified = createMemo(() => props.modifiedFiles?.has(filePath) ?? false)
+                    const isFocused = createMemo(() => props.focusedFile === filePath)
+                    const color = () => {
+                      if (isModified()) return theme.accent
+                      if (isFocused()) return theme.text
+                      return theme.textMuted
+                    }
+                    return (
+                      <box
+                        flexDirection="row"
+                        paddingLeft={2}
+                        justifyContent="space-between"
+                        backgroundColor={isOpen() ? theme.backgroundElement : undefined}
+                      >
+                        <text fg={color()} onMouseUp={() => props.onFileClick(filePath)}>
+                          <Show when={isFocused()} fallback={filePath}>
+                            <b>{filePath}</b>
+                          </Show>
+                        </text>
+                        <text fg={theme.textMuted} onMouseUp={() => handleDeleteVirtual(filePath)}>
+                          x
+                        </text>
+                      </box>
+                    )
+                  }}
+                </For>
+              </Show>
+            </box>
             <For each={rootEntries()}>{(entry) => <TreeNode entry={entry} depth={0} />}</For>
           </box>
         </Show>

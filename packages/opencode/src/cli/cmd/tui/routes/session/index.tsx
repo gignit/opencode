@@ -212,8 +212,34 @@ export function Session() {
     }
   }
 
-  // Get all open file paths for sidebar highlighting (includes virtual like [PROMPT])
+  // Get all open file paths for sidebar highlighting (includes virtual prompts)
   const openFilePaths = () => [...panels().values()].map((p) => p.filePath)
+
+  // Create a new virtual prompt with timestamp
+  const createVirtualPrompt = (content = "") => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)
+    const name = `prompt-${timestamp}`
+    openPanel(name, {
+      virtual: true,
+      virtualContent: content,
+      virtualTitle: name,
+      onSaveContent: (text: string) => {
+        prompt?.set({ input: text, parts: [] })
+        prompt?.focus()
+        // Don't close - keep the prompt for reference
+      },
+    })
+    return name
+  }
+
+  // Delete a virtual prompt with confirmation
+  const deleteVirtualPrompt = (filePath: string) => {
+    const panel = panels().get(filePath)
+    if (panel) {
+      closePanel(panel.id)
+      updateModified(filePath, false)
+    }
+  }
 
   // Track which files have unsaved changes
   const [modifiedFiles, setModifiedFiles] = createSignal<Set<string>>(new Set())
@@ -933,17 +959,7 @@ export function Session() {
       category: "Prompt",
       onSelect: (dialog) => {
         const text = prompt?.current.input ?? ""
-        openPanel("[PROMPT]", {
-          virtual: true,
-          virtualContent: text,
-          virtualTitle: "Edit Prompt",
-          onSaveContent: (content: string) => {
-            prompt?.set({ input: content, parts: [] })
-            const panel = panels().get("[PROMPT]")
-            if (panel) closePanel(panel.id)
-            prompt?.focus()
-          },
-        })
+        createVirtualPrompt(text)
         dialog.clear()
       },
     },
@@ -1195,6 +1211,8 @@ export function Session() {
             openFiles={openFilePaths()}
             modifiedFiles={modifiedFiles()}
             focusedFile={focusedFilePath()}
+            onCreateVirtualPrompt={() => createVirtualPrompt()}
+            onDeleteVirtualPrompt={deleteVirtualPrompt}
           />
         </Show>
       </box>
