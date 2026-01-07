@@ -141,9 +141,58 @@ export function Session() {
   const [diffWrapMode, setDiffWrapMode] = createSignal<"word" | "none">("word")
   const [animationsEnabled, setAnimationsEnabled] = createSignal(kv.get("animations_enabled", true))
   // Content panel state (file viewer)
-  const [requestedFile, setRequestedFile] = createSignal<string | null>(null)
   const [activeFile, setActiveFile] = createSignal<string | null>(null)
   const [contentPanelWidth, setContentPanelWidth] = createSignal(0)
+
+  // Content panel stack - each entry is independent
+  type ContentPanelEntry = {
+    id: string
+    type: "file" | "virtual"
+    filePath?: string
+    virtualContent?: string
+    virtualTitle?: string
+    onSaveContent?: (content: string) => void
+  }
+  const [contentStack, setContentStack] = createSignal<ContentPanelEntry[]>([])
+  const topPanel = () => contentStack()[contentStack().length - 1]
+
+  const debugLog = async (msg: string) => {
+    const stack = contentStack()
+    const info = stack.map((p) => `{id:${p.id.slice(0, 8)},type:${p.type},file:${p.filePath ?? "none"}}`).join(", ")
+    const fs = await import("node:fs")
+    fs.appendFileSync("/tmp/panel-debug.log", `${Date.now()} ${msg} | stack=[${info}] len=${stack.length}\n`)
+  }
+
+  const pushContentPanel = (entry: Omit<ContentPanelEntry, "id">) => {
+    const id = crypto.randomUUID()
+    debugLog(`PUSH BEFORE type=${entry.type} file=${entry.filePath ?? "virtual"}`)
+    setContentStack((stack) => [...stack, { ...entry, id }])
+    debugLog(`PUSH AFTER type=${entry.type} file=${entry.filePath ?? "virtual"}`)
+  }
+  const popContentPanel = () => {
+    debugLog("POP BEFORE")
+    setContentStack((stack) => stack.slice(0, -1))
+    debugLog("POP AFTER")
+  }
+  const openFile = (filePath: string) => {
+    // Check if this file is already in the stack
+    const existing = contentStack().find((p) => p.type === "file" && p.filePath === filePath)
+    if (existing) {
+      // If it's already the top, do nothing
+      if (topPanel()?.id === existing.id) return
+      // Move it to the top by removing and re-adding
+      setContentStack((stack) => [...stack.filter((p) => p.id !== existing.id), existing])
+      return
+    }
+    // Push new file panel
+    pushContentPanel({ type: "file", filePath })
+  }
+
+  // Get all open file paths for sidebar highlighting
+  const openFilePaths = () =>
+    contentStack()
+      .filter((p) => p.type === "file" && p.filePath)
+      .map((p) => p.filePath!)
 
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => {
@@ -839,6 +888,29 @@ export function Session() {
         dialog.clear()
       },
     },
+    {
+      title: "Edit prompt in editor",
+      value: "prompt.edit",
+      keybind: "prompt_edit_in_editor",
+      category: "Prompt",
+      onSelect: (dialog) => {
+        const text = prompt?.current.input ?? ""
+        debugLog("PROMPT_EDIT onSelect - pushing virtual panel")
+        pushContentPanel({
+          type: "virtual",
+          virtualContent: text,
+          virtualTitle: "Edit Prompt",
+          onSaveContent: (content) => {
+            debugLog("PROMPT_EDIT onSaveContent - about to pop")
+            prompt?.set({ input: content, parts: [] })
+            popContentPanel()
+            debugLog("PROMPT_EDIT onSaveContent - after pop")
+            prompt?.focus()
+          },
+        })
+        dialog.clear()
+      },
+    },
   ])
 
   const revertInfo = createMemo(() => session()?.revert)
@@ -1032,19 +1104,33 @@ export function Session() {
                   )}
                 </For>
               </scrollbox>
-              <ContentPanel
-                filePath={requestedFile()}
-                sessionID={route.sessionID}
-                totalWidth={contentPanelTotalWidth()}
-                onClose={() => {
-                  setRequestedFile(null)
-                  prompt?.focus()
+              <For each={contentStack()}>
+                {(panel, index) => {
+                  const isTop = () => index() === contentStack().length - 1
+                  return (
+                    <ContentPanel
+                      filePath={panel.type === "file" ? (panel.filePath ?? null) : null}
+                      sessionID={route.sessionID}
+                      totalWidth={contentPanelTotalWidth()}
+                      onClose={() => {
+                        debugLog(`FOR onClose panel.id=${panel.id.slice(0, 8)} panel.type=${panel.type}`)
+                        popContentPanel()
+                        if (contentStack().length === 0) {
+                          prompt?.focus()
+                        }
+                      }}
+                      onActiveFileChange={setActiveFile}
+                      onWidthChange={setContentPanelWidth}
+                      onEnterEdit={() => prompt?.blur()}
+                      onExitEdit={() => prompt?.focus()}
+                      virtualContent={panel.virtualContent}
+                      virtualTitle={panel.virtualTitle}
+                      onSaveContent={panel.onSaveContent}
+                      visible={isTop()}
+                    />
+                  )
                 }}
-                onActiveFileChange={setActiveFile}
-                onWidthChange={setContentPanelWidth}
-                onEnterEdit={() => prompt?.blur()}
-                onExitEdit={() => prompt?.focus()}
-              />
+              </For>
             </box>
             <box flexShrink={0}>
               <Show when={permissions().length > 0}>
@@ -1070,11 +1156,7 @@ export function Session() {
           <Toast />
         </box>
         <Show when={sidebarVisible()}>
-          <Sidebar
-            sessionID={route.sessionID}
-            onFileSelect={(file) => setRequestedFile(file)}
-            activeFile={activeFile()}
-          />
+          <Sidebar sessionID={route.sessionID} onFileSelect={(file) => openFile(file)} openFiles={openFilePaths()} />
         </Show>
       </box>
     </context.Provider>

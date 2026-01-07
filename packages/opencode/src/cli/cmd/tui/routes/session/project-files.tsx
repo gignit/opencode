@@ -41,7 +41,7 @@ interface ProjectFilesProps {
   expanded: boolean
   onToggle: () => void
   onFileClick: (filePath: string) => void
-  activeFile?: string | null
+  openFiles?: string[]
 }
 
 export function ProjectFiles(props: ProjectFilesProps) {
@@ -117,7 +117,7 @@ export function ProjectFiles(props: ProjectFilesProps) {
   }
 
   function TreeNode(nodeProps: { entry: FileEntry; depth: number }) {
-    const isActive = createMemo(() => props.activeFile === nodeProps.entry.path)
+    const isActive = createMemo(() => props.openFiles?.includes(nodeProps.entry.path) ?? false)
     const indent = nodeProps.depth * 2
 
     if (nodeProps.entry.type === "directory") {

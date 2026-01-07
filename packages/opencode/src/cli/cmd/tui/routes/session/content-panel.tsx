@@ -14,6 +14,12 @@ interface ContentPanelProps {
   onWidthChange?: (width: number) => void
   onEnterEdit?: () => void
   onExitEdit?: () => void
+  // Virtual content mode (for prompt editing)
+  virtualContent?: string
+  virtualTitle?: string
+  onSaveContent?: (content: string) => void
+  // Visibility control for stacking
+  visible?: boolean
 }
 
 export function ContentPanel(props: ContentPanelProps) {
@@ -30,9 +36,13 @@ export function ContentPanel(props: ContentPanelProps) {
     return Math.max(minWidth, Math.min(maxWidth, width()))
   })
 
-  // Auto-focus when a file is opened
+  const hasContent = () => !!(props.filePath || props.virtualContent !== undefined)
+  const isVisible = () => props.visible !== false
+  const isOpen = () => hasContent() && isVisible()
+
+  // Auto-focus when a file or virtual content is opened
   createEffect(() => {
-    if (props.filePath) {
+    if (isOpen()) {
       setFocused(true)
       props.onFocusChange?.(true)
     }
@@ -40,7 +50,7 @@ export function ContentPanel(props: ContentPanelProps) {
 
   // Notify parent of width changes
   createEffect(() => {
-    const w = props.filePath ? clampedWidth() + 1 : 0
+    const w = isOpen() ? clampedWidth() + 1 : 0
     props.onWidthChange?.(w)
   })
 
@@ -62,8 +72,9 @@ export function ContentPanel(props: ContentPanelProps) {
   }
 
   return (
-    <Show when={props.filePath}>
+    <>
       <box
+        visible={isOpen()}
         width={1}
         backgroundColor={dragging() ? theme.accent : theme.border}
         onMouseDown={() => setDragging(true)}
@@ -78,18 +89,23 @@ export function ContentPanel(props: ContentPanelProps) {
           kv.set("content_panel_width", width())
         }}
       />
-      <box width={clampedWidth()}>
-        <FileViewer
-          filePath={props.filePath!}
-          sessionID={props.sessionID}
-          focused={focused()}
-          onFocus={handleFocus}
-          onClose={handleClose}
-          onFileChange={(file: string) => setDisplayedFile(file)}
-          onEnterEdit={props.onEnterEdit}
-          onExitEdit={props.onExitEdit}
-        />
+      <box visible={isOpen()} width={clampedWidth()}>
+        <Show when={hasContent()}>
+          <FileViewer
+            filePath={props.filePath ?? undefined}
+            sessionID={props.sessionID}
+            focused={focused() && isOpen()}
+            onFocus={handleFocus}
+            onClose={handleClose}
+            onFileChange={(file: string) => setDisplayedFile(file)}
+            onEnterEdit={props.onEnterEdit}
+            onExitEdit={props.onExitEdit}
+            virtualContent={props.virtualContent}
+            virtualTitle={props.virtualTitle}
+            onSaveContent={props.onSaveContent}
+          />
+        </Show>
       </box>
-    </Show>
+    </>
   )
 }

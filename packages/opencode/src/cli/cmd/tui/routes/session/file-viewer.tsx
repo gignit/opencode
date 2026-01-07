@@ -17,7 +17,7 @@ import type {
 } from "@opentui/core"
 
 interface FileViewerProps {
-  filePath: string
+  filePath?: string
   sessionID: string
   focused: boolean
   onFocus: () => void
@@ -25,6 +25,10 @@ interface FileViewerProps {
   onFileChange?: (filePath: string) => void
   onEnterEdit?: () => void
   onExitEdit?: () => void
+  // Virtual content mode (for prompt editing)
+  virtualContent?: string
+  virtualTitle?: string
+  onSaveContent?: (content: string) => void
 }
 
 export function FileViewer(props: FileViewerProps) {
@@ -35,7 +39,10 @@ export function FileViewer(props: FileViewerProps) {
   const kv = useKV()
   const [content, setContent] = createSignal("")
   const [originalContent, setOriginalContent] = createSignal("")
-  const [currentFile, setCurrentFile] = createSignal(props.filePath)
+  const [currentFile, setCurrentFile] = createSignal(props.filePath ?? "")
+
+  // Virtual mode: editing in-memory content instead of a file
+  const isVirtual = () => props.virtualContent !== undefined
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   const [showDiff, setShowDiff] = createSignal(true)
@@ -202,6 +209,17 @@ export function FileViewer(props: FileViewerProps) {
     setLoading(true)
     setError(null)
     setEditMode(false)
+    // Virtual mode: use provided content directly
+    if (isVirtual()) {
+      // Add trailing newline if not present so user has room to type
+      const text = props.virtualContent!.endsWith("\n") ? props.virtualContent! : props.virtualContent! + "\n"
+      setContent(text)
+      setOriginalContent(text)
+      setLoading(false)
+      setEditMode(true)
+      props.onEnterEdit?.()
+      return
+    }
     const file = Bun.file(fullPath())
     const exists = await file.exists()
     if (!exists) {
@@ -221,12 +239,24 @@ export function FileViewer(props: FileViewerProps) {
   }
 
   onMount(() => {
-    props.onFileChange?.(props.filePath)
+    if (!isVirtual()) {
+      props.onFileChange?.(props.filePath!)
+    }
   })
 
   const saveFile = async () => {
     if (!hasChanges() || saving()) return
     setSaving(true)
+    // Virtual mode: call callback instead of writing to disk
+    if (isVirtual() && props.onSaveContent) {
+      props.onSaveContent(content())
+      // onSaveContent handles closing, don't call onClose here
+      setOriginalContent(content())
+      setSaving(false)
+      setEditMode(false)
+      props.onExitEdit?.()
+      return
+    }
     const result = await Bun.write(fullPath(), content()).catch(() => null)
     if (result === null) {
       toast.show({ message: "failed to save file", variant: "error" })
@@ -286,6 +316,10 @@ export function FileViewer(props: FileViewerProps) {
     }
     setContent(originalContent())
     setEditMode(false)
+    // In virtual mode, close the panel on discard
+    if (isVirtual()) {
+      props.onClose()
+    }
   }
 
   const openFile = () => {
@@ -302,8 +336,17 @@ export function FileViewer(props: FileViewerProps) {
 
   createEffect(
     on(
-      () => props.filePath,
-      (newFile) => {
+      () => (isVirtual() ? props.virtualContent : props.filePath),
+      (newValue) => {
+        // Virtual mode
+        if (isVirtual()) {
+          if (newValue === undefined) return
+          loadFile()
+          return
+        }
+        // File mode
+        const newFile = newValue as string | undefined
+        if (!newFile) return
         if (newFile === untrack(currentFile)) {
           loadFile()
           return

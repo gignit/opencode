@@ -13,11 +13,7 @@ import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
 import { ProjectFiles } from "./project-files"
 
-export function Sidebar(props: {
-  sessionID: string
-  onFileSelect?: (filePath: string) => void
-  activeFile?: string | null
-}) {
+export function Sidebar(props: { sessionID: string; onFileSelect?: (filePath: string) => void; openFiles?: string[] }) {
   const sync = useSync()
   const { theme } = useTheme()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
@@ -232,7 +228,7 @@ export function Sidebar(props: {
               expanded={expanded.files}
               onToggle={() => setExpanded("files", !expanded.files)}
               onFileClick={(filePath) => props.onFileSelect?.(filePath)}
-              activeFile={props.activeFile ?? null}
+              openFiles={props.openFiles}
             />
             <Show when={diff().length > 0}>
               <box>
@@ -258,13 +254,13 @@ export function Sidebar(props: {
                         if (!rest) return last
                         return Locale.truncateMiddle(rest, 30 - last.length) + "/" + last
                       })
-                      const isActive = createMemo(() => props.activeFile === item.file)
+                      const isActive = createMemo(() => props.openFiles?.some((f) => f.endsWith(item.file)) ?? false)
                       return (
                         <box
                           flexDirection="row"
                           gap={1}
                           justifyContent="space-between"
-                          onMouseDown={() => props.onFileSelect?.(path.join(worktree(), item.file))}
+                          onMouseDown={() => props.onFileSelect?.(item.file)}
                           backgroundColor={isActive() ? theme.backgroundElement : undefined}
                         >
                           <text fg={isActive() ? theme.text : theme.textMuted} wrapMode="char">

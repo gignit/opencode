@@ -50,6 +50,13 @@ export const { use: useKeybind, provider: KeybindProvider } = createSimpleContex
     }
 
     useKeyboard(async (evt) => {
+      // Debug logging
+      const fs = await import("node:fs")
+      fs.appendFileSync(
+        "/tmp/keybind-debug.log",
+        `${Date.now()} key=${evt.name} ctrl=${evt.ctrl} shift=${evt.shift} meta=${evt.meta} seq=${JSON.stringify(evt.sequence)}\n`,
+      )
+
       if (!store.leader && result.match("leader", evt)) {
         leader(true)
         return
