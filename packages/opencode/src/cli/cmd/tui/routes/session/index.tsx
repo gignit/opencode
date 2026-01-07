@@ -213,11 +213,13 @@ export function Session() {
   }
 
   // Get all open file paths for sidebar highlighting (includes virtual prompts)
-  // Combine open panels with known session files from disk
-  const openFilePaths = () => {
+  // Get paths of actually open panels (for highlighting)
+  const openFilePaths = () => [...panels().values()].map((p) => p.filePath)
+
+  // Get all session files to display (open panels + disk files)
+  const allSessionFiles = () => {
     const panelPaths = [...panels().values()].map((p) => p.filePath)
     const diskFiles = sessionFiles()
-    // Merge, avoiding duplicates
     const all = new Set([...panelPaths, ...diskFiles])
     return [...all]
   }
@@ -1350,6 +1352,7 @@ export function Session() {
               }
             }}
             openFiles={openFilePaths()}
+            sessionFiles={allSessionFiles()}
             modifiedFiles={modifiedFiles()}
             focusedFile={focusedFilePath()}
             onCreateVirtualPrompt={() => createVirtualPrompt()}

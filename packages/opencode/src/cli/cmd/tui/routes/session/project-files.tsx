@@ -45,6 +45,7 @@ interface ProjectFilesProps {
   onToggle: () => void
   onFileClick: (filePath: string) => void
   openFiles?: string[]
+  sessionFiles?: string[]
   modifiedFiles?: Set<string>
   focusedFile?: string | null
   onCreateVirtualPrompt?: () => void
@@ -190,7 +191,7 @@ export function ProjectFiles(props: ProjectFilesProps) {
   }
 
   // Get session prompt files from .git/opencode-session/
-  const virtualFiles = createMemo(() => (props.openFiles ?? []).filter((f) => f.includes(".git/opencode-session/")))
+  const virtualFiles = createMemo(() => (props.sessionFiles ?? []).filter((f) => f.includes(".git/opencode-session/")))
 
   // Extract display name from path (just the filename)
   const getDisplayName = (filePath: string) => {
@@ -210,9 +211,9 @@ export function ProjectFiles(props: ProjectFilesProps) {
     }
   })
 
-  // Load session files when expanded
+  // Load session files when Project Files is expanded
   createEffect(() => {
-    if (sessionExpanded()) {
+    if (props.expanded) {
       props.onLoadSessionFiles?.()
     }
   })

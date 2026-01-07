@@ -17,6 +17,7 @@ export function Sidebar(props: {
   sessionID: string
   onFileSelect?: (filePath: string) => void
   openFiles?: string[]
+  sessionFiles?: string[]
   modifiedFiles?: Set<string>
   focusedFile?: string | null
   onCreateVirtualPrompt?: () => void
@@ -238,6 +239,7 @@ export function Sidebar(props: {
               onToggle={() => setExpanded("files", !expanded.files)}
               onFileClick={(filePath) => props.onFileSelect?.(filePath)}
               openFiles={props.openFiles}
+              sessionFiles={props.sessionFiles}
               modifiedFiles={props.modifiedFiles}
               focusedFile={props.focusedFile}
               onCreateVirtualPrompt={props.onCreateVirtualPrompt}
