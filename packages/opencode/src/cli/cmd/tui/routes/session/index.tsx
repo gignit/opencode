@@ -228,13 +228,13 @@ export function Session() {
   const gitRoot = () => sync.data.path.worktree
   const sessionDir = () => {
     const root = gitRoot()
-    return root ? `${root}/.git/opencode-session` : null
+    return root ? `${root}/.git/session` : null
   }
 
   // Track session files from disk
   const [sessionFiles, setSessionFiles] = createSignal<string[]>([])
 
-  // Load existing session files from .git/opencode-session/
+  // Load existing session files from .git/session/
   const loadSessionFiles = async () => {
     const dir = sessionDir()
     if (!dir) return
@@ -303,7 +303,7 @@ export function Session() {
     const dir = sessionDir()
 
     if (dir) {
-      // Persisted mode - write to .git/opencode-session/
+      // Persisted mode - write to .git/session/
       const fs = await import("node:fs/promises")
       const nodePath = await import("node:path")
       await fs.mkdir(dir, { recursive: true })
@@ -369,7 +369,7 @@ export function Session() {
       updateModified(filePath, false)
     }
     // If it's a persisted file, delete from disk and refresh list
-    if (filePath.includes(".git/opencode-session/")) {
+    if (filePath.includes(".git/session/")) {
       const fs = await import("node:fs/promises")
       await fs.unlink(filePath).catch(() => {})
       // Refresh session files list
@@ -1345,7 +1345,7 @@ export function Session() {
             sessionID={route.sessionID}
             onFileSelect={(file) => {
               // If it's a session file not yet open, load it
-              if (file.includes(".git/opencode-session/") && !panels().has(file)) {
+              if (file.includes(".git/session/") && !panels().has(file)) {
                 openSessionFile(file)
               } else {
                 openPanel(file)

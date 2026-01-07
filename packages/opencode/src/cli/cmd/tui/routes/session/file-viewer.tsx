@@ -101,8 +101,10 @@ export function FileViewer(props: FileViewerProps) {
   const relativePath = createMemo(() => {
     const full = fullPath()
     const root = worktree()
-    if (full.startsWith(root)) return full.slice(root.length + 1)
-    return currentFile()
+    let rel = full.startsWith(root) ? full.slice(root.length + 1) : currentFile()
+    // Strip .git/session/ prefix for cleaner display
+    if (rel.startsWith(".git/session/")) rel = rel.slice(".git/session/".length)
+    return rel
   })
 
   const fileDiff = createMemo(() => {

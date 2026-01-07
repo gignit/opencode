@@ -118,6 +118,26 @@ export function ProjectFiles(props: ProjectFilesProps) {
     }
   }
 
+  // Expand a directory without toggling (for reveal)
+  const expandDir = async (dirPath: string) => {
+    const current = dirs[dirPath]
+    if (current?.expanded) return
+    setDirs(dirPath, { loading: true, entries: [], expanded: true })
+    const entries = await loadDir(directory(), dirPath)
+    setDirs(dirPath, { loading: false, entries, expanded: true })
+  }
+
+  // Reveal a file by expanding all parent directories
+  const revealFile = async (filePath: string) => {
+    if (!filePath) return
+    const parts = filePath.split("/")
+    // Expand each parent directory
+    for (let i = 1; i < parts.length; i++) {
+      const dirPath = parts.slice(0, i).join("/")
+      if (dirPath) await expandDir(dirPath)
+    }
+  }
+
   const handleToggle = async () => {
     if (!props.expanded) {
       await loadRootDir()
@@ -136,13 +156,27 @@ export function ProjectFiles(props: ProjectFilesProps) {
       const isExpanded = createMemo(() => dirState()?.expanded ?? false)
       const isLoading = createMemo(() => dirState()?.loading ?? false)
       const children = createMemo(() => dirState()?.entries ?? [])
+      // Check if any open file is inside this directory (when collapsed)
+      const containsOpenFile = createMemo(() => {
+        if (isExpanded()) return false
+        const openFiles = props.openFiles ?? []
+        return openFiles.some((f) => f.startsWith(nodeProps.entry.path + "/"))
+      })
 
       return (
         <box>
-          <box flexDirection="row" gap={1} paddingLeft={indent} onMouseUp={() => toggleDir(nodeProps.entry.path)}>
+          <box
+            flexDirection="row"
+            gap={1}
+            paddingLeft={indent}
+            onMouseUp={() => toggleDir(nodeProps.entry.path)}
+            backgroundColor={containsOpenFile() ? theme.backgroundElement : undefined}
+          >
             <text fg={theme.text}>{isExpanded() ? "v" : ">"}</text>
             <text fg={theme.text} wrapMode="char">
-              {nodeProps.entry.name}/
+              <Show when={containsOpenFile()} fallback={<>{nodeProps.entry.name}/</>}>
+                <b>{nodeProps.entry.name}/</b>
+              </Show>
             </text>
           </box>
           <Show when={isExpanded()}>
@@ -190,8 +224,8 @@ export function ProjectFiles(props: ProjectFilesProps) {
     )
   }
 
-  // Get session prompt files from .git/opencode-session/
-  const virtualFiles = createMemo(() => (props.sessionFiles ?? []).filter((f) => f.includes(".git/opencode-session/")))
+  // Get session prompt files from .git/session/
+  const virtualFiles = createMemo(() => (props.sessionFiles ?? []).filter((f) => f.includes(".git/session/")))
 
   // Extract display name from path (just the filename)
   const getDisplayName = (filePath: string) => {
@@ -200,21 +234,37 @@ export function ProjectFiles(props: ProjectFilesProps) {
 
   const [sessionExpanded, setSessionExpanded] = createSignal(false)
   const dialog = useDialog()
-
-  // Auto-expand session when virtual files exist, collapse when empty
-  // Auto-expand session when virtual files exist, collapse when empty
-  createEffect(() => {
-    if (virtualFiles().length > 0) {
-      setSessionExpanded(true)
-    } else {
-      setSessionExpanded(false)
-    }
+  const hasFiles = () => virtualFiles().length > 0
+  // Check if any open file is a session file (when session folder is collapsed)
+  const sessionContainsOpenFile = createMemo(() => {
+    if (sessionExpanded()) return false
+    const openFiles = props.openFiles ?? []
+    return openFiles.some((f) => f.includes(".git/session/"))
   })
 
   // Load session files when Project Files is expanded
   createEffect(() => {
     if (props.expanded) {
       props.onLoadSessionFiles?.()
+    }
+  })
+
+  // Track files that have already been revealed (to avoid re-expanding on focus change)
+  const revealedFiles = new Set<string>()
+
+  // Reveal focused file by expanding its parent directories (only on first open)
+  createEffect(() => {
+    const focused = props.focusedFile
+    if (!focused || !props.expanded) return
+    // Only reveal files that haven't been revealed before
+    if (revealedFiles.has(focused)) return
+    revealedFiles.add(focused)
+    // Session file - expand session folder
+    if (focused.includes(".git/session/")) {
+      setSessionExpanded(true)
+    } else {
+      // Regular file - expand parent directories
+      revealFile(focused)
     }
   })
 
@@ -242,24 +292,23 @@ export function ProjectFiles(props: ProjectFilesProps) {
         </Show>
         <Show when={!rootLoading()}>
           <box>
-            {/* Session folder for virtual prompts - always visible */}
+            {/* Session folder for prompts */}
             <box>
               <box flexDirection="row" gap={1} justifyContent="space-between">
                 <box
                   flexDirection="row"
                   gap={1}
-                  onMouseUp={() => {
-                    if (virtualFiles().length === 0) {
-                      props.onCreateVirtualPrompt?.()
-                    } else {
-                      setSessionExpanded(!sessionExpanded())
-                    }
-                  }}
+                  onMouseUp={() => setSessionExpanded(!sessionExpanded())}
+                  backgroundColor={sessionContainsOpenFile() ? theme.backgroundElement : undefined}
                 >
-                  <text fg={virtualFiles().length > 0 ? theme.text : theme.textMuted}>
+                  <text fg={hasFiles() || sessionContainsOpenFile() ? theme.text : theme.textMuted}>
                     {sessionExpanded() ? "-" : "+"}
                   </text>
-                  <text fg={virtualFiles().length > 0 ? theme.text : theme.textMuted}>session</text>
+                  <text fg={hasFiles() || sessionContainsOpenFile() ? theme.text : theme.textMuted}>
+                    <Show when={sessionContainsOpenFile()} fallback="session">
+                      <b>session</b>
+                    </Show>
+                  </text>
                 </box>
                 <Show when={sessionExpanded()}>
                   <text fg={theme.textMuted} onMouseUp={() => props.onCreateVirtualPrompt?.()}>
@@ -267,7 +316,7 @@ export function ProjectFiles(props: ProjectFilesProps) {
                   </text>
                 </Show>
               </box>
-              <Show when={sessionExpanded() && virtualFiles().length > 0}>
+              <Show when={sessionExpanded() && hasFiles()}>
                 <For each={virtualFiles()}>
                   {(filePath) => {
                     const isOpen = createMemo(() => props.openFiles?.includes(filePath) ?? false)
