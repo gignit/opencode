@@ -11,8 +11,19 @@ import { useKeybind } from "../../context/keybind"
 import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
+import { ProjectFiles } from "./project-files"
 
-export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
+export function Sidebar(props: {
+  sessionID: string
+  onFileSelect?: (filePath: string) => void
+  openFiles?: string[]
+  sessionFiles?: string[]
+  modifiedFiles?: Set<string>
+  focusedFile?: string | null
+  onCreateVirtualPrompt?: () => void
+  onDeleteVirtualPrompt?: (filePath: string) => void
+  onLoadSessionFiles?: () => void
+}) {
   const sync = useSync()
   const { theme } = useTheme()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
@@ -20,11 +31,15 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const todo = createMemo(() => sync.data.todo[props.sessionID] ?? [])
   const messages = createMemo(() => sync.data.message[props.sessionID] ?? [])
 
+  // worktree = git project root (for Modified Files)
+  const worktree = createMemo(() => sync.data.path.worktree || sync.data.path.directory || process.cwd())
+
   const [expanded, setExpanded] = createStore({
     mcp: true,
     diff: true,
     todo: true,
     lsp: true,
+    files: false,
   })
 
   // Sort MCP servers alphabetically for consistent display order
@@ -77,7 +92,6 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
         paddingBottom={1}
         paddingLeft={2}
         paddingRight={2}
-        position={props.overlay ? "absolute" : "relative"}
       >
         <scrollbox flexGrow={1}>
           <box flexShrink={0} gap={1} paddingRight={1}>
@@ -220,6 +234,18 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 </Show>
               </box>
             </Show>
+            <ProjectFiles
+              expanded={expanded.files}
+              onToggle={() => setExpanded("files", !expanded.files)}
+              onFileClick={(filePath) => props.onFileSelect?.(filePath)}
+              openFiles={props.openFiles}
+              sessionFiles={props.sessionFiles}
+              modifiedFiles={props.modifiedFiles}
+              focusedFile={props.focusedFile}
+              onCreateVirtualPrompt={props.onCreateVirtualPrompt}
+              onDeleteVirtualPrompt={props.onDeleteVirtualPrompt}
+              onLoadSessionFiles={props.onLoadSessionFiles}
+            />
             <Show when={diff().length > 0}>
               <box>
                 <box
@@ -237,17 +263,36 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 <Show when={diff().length <= 2 || expanded.diff}>
                   <For each={diff() || []}>
                     {(item) => {
-                      const file = createMemo(() => {
+                      const displayName = createMemo(() => {
                         const splits = item.file.split(path.sep).filter(Boolean)
                         const last = splits.at(-1)!
                         const rest = splits.slice(0, -1).join(path.sep)
                         if (!rest) return last
                         return Locale.truncateMiddle(rest, 30 - last.length) + "/" + last
                       })
+                      const isOpen = createMemo(() => props.openFiles?.some((f) => f.endsWith(item.file)) ?? false)
+                      const isFocused = createMemo(() => props.focusedFile?.endsWith(item.file) ?? false)
+                      const isModified = createMemo(() => {
+                        const match = props.openFiles?.find((f) => f.endsWith(item.file))
+                        return match ? (props.modifiedFiles?.has(match) ?? false) : false
+                      })
+                      const color = () => {
+                        if (isModified()) return theme.accent
+                        if (isFocused()) return theme.text
+                        return theme.textMuted
+                      }
                       return (
-                        <box flexDirection="row" gap={1} justifyContent="space-between">
-                          <text fg={theme.textMuted} wrapMode="char">
-                            {file()}
+                        <box
+                          flexDirection="row"
+                          gap={1}
+                          justifyContent="space-between"
+                          onMouseDown={() => props.onFileSelect?.(item.file)}
+                          backgroundColor={isOpen() ? theme.backgroundElement : undefined}
+                        >
+                          <text fg={color()} wrapMode="char">
+                            <Show when={isFocused()} fallback={displayName()}>
+                              <b>{displayName()}</b>
+                            </Show>
                           </text>
                           <box flexDirection="row" gap={1} flexShrink={0}>
                             <Show when={item.additions}>
