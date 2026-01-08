@@ -347,16 +347,28 @@ export function Session() {
   // Open or create a prompt for editing (ctrl+x p)
   const openPromptEditor = async (content = "") => {
     const dir = sessionDir()
+    const trimmed = content.trim()
     if (dir) {
-      // Try to open most recent prompt
       const recent = await getMostRecentPrompt()
       if (recent) {
-        await openSessionFile(recent)
-        prompt?.blur()
-        return
+        // Empty/whitespace prompt - open most recent file
+        if (!trimmed) {
+          await openSessionFile(recent)
+          prompt?.blur()
+          return
+        }
+        // Compare content length to most recent file
+        const fs = await import("node:fs/promises")
+        const fileContent = await fs.readFile(recent, "utf-8").catch(() => "")
+        if (content.length === fileContent.length) {
+          // Same length - open the existing file
+          await openSessionFile(recent)
+          prompt?.blur()
+          return
+        }
       }
     }
-    // No existing prompt, create new one
+    // Different length or no existing prompt - create new one
     await createVirtualPrompt(content)
   }
 

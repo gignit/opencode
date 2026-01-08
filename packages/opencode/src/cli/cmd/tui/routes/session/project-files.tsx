@@ -224,8 +224,11 @@ export function ProjectFiles(props: ProjectFilesProps) {
     )
   }
 
-  // Get session prompt files from .git/session/
-  const virtualFiles = createMemo(() => (props.sessionFiles ?? []).filter((f) => f.includes(".git/session/")))
+  // Get session prompt files from .git/session/, sorted by filename
+  const virtualFiles = createMemo(() => {
+    const files = (props.sessionFiles ?? []).filter((f) => f.includes(".git/session/"))
+    return files.sort((a, b) => a.localeCompare(b))
+  })
 
   // Extract display name from path (just the filename)
   const getDisplayName = (filePath: string) => {
@@ -298,9 +301,9 @@ export function ProjectFiles(props: ProjectFilesProps) {
           </text>
         </Show>
         <Show when={!rootLoading()}>
-          <box>
+          <box flexDirection="column">
             {/* Session folder for prompts */}
-            <box>
+            <box flexDirection="column">
               <box flexDirection="row" gap={1} justifyContent="space-between">
                 <box
                   flexDirection="row"
