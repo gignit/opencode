@@ -568,6 +568,8 @@ export const SessionRoutes = lazy(() =>
         "query",
         z.object({
           limit: z.coerce.number().optional(),
+          ts_before: z.coerce.number().optional(),
+          breakpoint: z.coerce.boolean().optional(),
         }),
       ),
       async (c) => {
@@ -575,6 +577,8 @@ export const SessionRoutes = lazy(() =>
         const messages = await Session.messages({
           sessionID: c.req.valid("param").sessionID,
           limit: query.limit,
+          ts_before: query.ts_before,
+          breakpoint: query.breakpoint,
         })
         return c.json(messages)
       },
