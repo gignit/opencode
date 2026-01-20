@@ -1421,7 +1421,7 @@ export default function Layout(props: ParentProps) {
             </Tooltip>
           }
         >
-          <HoverCard openDelay={150} closeDelay={100} placement="right-start" gutter={16} trigger={item}>
+          <HoverCard openDelay={150} closeDelay={100} placement="right-start" gutter={28} trigger={item}>
             <Show when={hoverReady()} fallback={<div class="text-12-regular text-text-weak">Loading messages…</div>}>
               <MessageNav
                 messages={hoverMessages() ?? []}
@@ -1730,7 +1730,7 @@ export default function Layout(props: ParentProps) {
           trigger={trigger}
           onOpenChange={setOpen}
         >
-          <div class="-m-3 flex flex-col w-72">
+          <div class="-m-3 p-2 flex flex-col w-72">
             <div class="px-4 pt-2 pb-1 text-14-medium text-text-strong truncate">{displayName(props.project)}</div>
             <div class="px-4 pb-2 text-12-medium text-text-weak">Recent sessions</div>
             <div class="px-2 pb-2 flex flex-col gap-2">
