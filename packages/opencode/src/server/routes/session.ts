@@ -4,6 +4,7 @@ import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Session } from "../../session"
 import { MessageV2 } from "../../session/message-v2"
+import { KnowledgePack } from "../../session/knowledge-pack"
 import { SessionPrompt } from "../../session/prompt"
 import { SessionCompaction } from "../../session/compaction"
 import { SessionRevert } from "../../session/revert"
@@ -616,6 +617,167 @@ export const SessionRoutes = lazy(() =>
           messageID: params.messageID,
         })
         return c.json(message)
+      },
+    )
+    .get(
+      "/:sessionID/knowledge-packs",
+      describeRoute({
+        summary: "List knowledge packs",
+        description: "Get all knowledge pack messages injected into a session.",
+        operationId: "session.knowledgePacks",
+        responses: {
+          200: {
+            description: "Knowledge packs",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.array(
+                    z.object({
+                      id: z.string(),
+                      name: z.string(),
+                      displayName: z.string(),
+                      version: z.string(),
+                    }),
+                  ),
+                ),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+        }),
+      ),
+      async (c) => {
+        const { sessionID } = c.req.valid("param")
+        const [msgs, available] = await Promise.all([KnowledgePack.fromSession(sessionID), KnowledgePack.available()])
+        const library = new Map(available.map((p) => [p.name + "@" + p.version, p]))
+        const result = msgs.map((msg) => {
+          const user = msg.info as MessageV2.User
+          const key = user.agent.startsWith("kp:") ? user.agent.slice(3) : user.agent
+          const pack = library.get(key)
+          const [name, version] = key.split("@")
+          return {
+            id: msg.info.id,
+            name,
+            displayName: pack?.displayName ?? pack?.name ?? name,
+            version: pack?.version ?? version,
+          }
+        })
+        return c.json(result)
+      },
+    )
+    .get(
+      "/:sessionID/knowledge-packs/available",
+      describeRoute({
+        summary: "List available knowledge packs",
+        description:
+          "Get all knowledge packs available in the library directory (~/.config/opencode/llm_knowledge_packs/).",
+        operationId: "session.knowledgePacksAvailable",
+        responses: {
+          200: {
+            description: "Available knowledge packs",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.array(
+                    z.object({
+                      name: z.string(),
+                      displayName: z.string(),
+                      version: z.string(),
+                      enabled: z.boolean(),
+                    }),
+                  ),
+                ),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+        }),
+      ),
+      async (c) => {
+        const { sessionID } = c.req.valid("param")
+        const [available, active] = await Promise.all([KnowledgePack.available(), KnowledgePack.fromSession(sessionID)])
+        const activeKeys = new Set(
+          active.map((msg) => {
+            const user = msg.info as MessageV2.User
+            return user.agent.startsWith("kp:") ? user.agent.slice(3) : user.agent
+          }),
+        )
+        return c.json(
+          available.map((p) => ({
+            name: p.name,
+            displayName: p.displayName ?? p.name,
+            version: p.version,
+            enabled: activeKeys.has(p.name + "@" + p.version),
+          })),
+        )
+      },
+    )
+    .post(
+      "/:sessionID/knowledge-packs/:name/:version",
+      describeRoute({
+        summary: "Add a knowledge pack to session",
+        description: "Inject a knowledge pack from the library into the session.",
+        operationId: "session.knowledgePackAdd",
+        responses: {
+          200: {
+            description: "Knowledge pack added",
+            content: { "application/json": { schema: resolver(z.boolean()) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+          name: z.string().meta({ description: "Knowledge pack name" }),
+          version: z.string().meta({ description: "Knowledge pack version" }),
+        }),
+      ),
+      async (c) => {
+        const { sessionID, name, version } = c.req.valid("param")
+        await KnowledgePack.add({ sessionID, name, version })
+        return c.json(true)
+      },
+    )
+    .delete(
+      "/:sessionID/knowledge-packs/:name/:version",
+      describeRoute({
+        summary: "Remove a knowledge pack from session",
+        description: "Remove an injected knowledge pack from the session.",
+        operationId: "session.knowledgePackRemove",
+        responses: {
+          200: {
+            description: "Knowledge pack removed",
+            content: { "application/json": { schema: resolver(z.boolean()) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+          name: z.string().meta({ description: "Knowledge pack name" }),
+          version: z.string().meta({ description: "Knowledge pack version" }),
+        }),
+      ),
+      async (c) => {
+        const { sessionID, name, version } = c.req.valid("param")
+        await KnowledgePack.remove({ sessionID, name, version })
+        return c.json(true)
       },
     )
     .delete(

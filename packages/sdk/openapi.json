@@ -265,13 +265,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "List all projects",
@@ -309,13 +302,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Get current project",
@@ -340,47 +326,6 @@
         ]
       }
     },
-    "/project/git/init": {
-      "post": {
-        "operationId": "project.initGit",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "summary": "Initialize git repository",
-        "description": "Create a git repository for the current project and return the refreshed project info.",
-        "responses": {
-          "200": {
-            "description": "Project information after git initialization",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Project"
-                }
-              }
-            }
-          }
-        },
-        "x-codeSamples": [
-          {
-            "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.project.initGit({\n  ...\n})"
-          }
-        ]
-      }
-    },
     "/project/{projectID}": {
       "patch": {
         "operationId": "project.update",
@@ -388,13 +333,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -497,13 +435,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "List PTY sessions",
@@ -536,13 +467,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -627,13 +551,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "ptyID",
             "schema": {
@@ -679,13 +596,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -767,13 +677,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "ptyID",
             "schema": {
@@ -821,13 +724,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -883,13 +779,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Get configuration",
@@ -919,13 +808,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -982,13 +864,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "List config providers",
@@ -1041,13 +916,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "List tool IDs",
@@ -1089,13 +957,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -1149,196 +1010,6 @@
         ]
       }
     },
-    "/experimental/workspace": {
-      "post": {
-        "operationId": "experimental.workspace.create",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "summary": "Create workspace",
-        "description": "Create a workspace for the current project.",
-        "responses": {
-          "200": {
-            "description": "Workspace created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workspace"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BadRequestError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "pattern": "^wrk.*"
-                  },
-                  "type": {
-                    "type": "string"
-                  },
-                  "branch": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "extra": {
-                    "anyOf": [
-                      {},
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": ["type", "branch", "extra"]
-              }
-            }
-          }
-        },
-        "x-codeSamples": [
-          {
-            "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.workspace.create({\n  ...\n})"
-          }
-        ]
-      },
-      "get": {
-        "operationId": "experimental.workspace.list",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "summary": "List workspaces",
-        "description": "List all workspaces.",
-        "responses": {
-          "200": {
-            "description": "Workspaces",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Workspace"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-codeSamples": [
-          {
-            "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.workspace.list({\n  ...\n})"
-          }
-        ]
-      }
-    },
-    "/experimental/workspace/{id}": {
-      "delete": {
-        "operationId": "experimental.workspace.remove",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "schema": {
-              "type": "string",
-              "pattern": "^wrk.*"
-            },
-            "required": true
-          }
-        ],
-        "summary": "Remove workspace",
-        "description": "Remove an existing workspace.",
-        "responses": {
-          "200": {
-            "description": "Workspace removed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workspace"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BadRequestError"
-                }
-              }
-            }
-          }
-        },
-        "x-codeSamples": [
-          {
-            "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.workspace.remove({\n  ...\n})"
-          }
-        ]
-      }
-    },
     "/experimental/worktree": {
       "post": {
         "operationId": "worktree.create",
@@ -1346,13 +1017,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -1407,13 +1071,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "List worktrees",
@@ -1446,13 +1103,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -1509,13 +1159,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Reset worktree",
@@ -1559,99 +1202,6 @@
         ]
       }
     },
-    "/experimental/session": {
-      "get": {
-        "operationId": "experimental.session.list",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "directory",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Filter sessions by project directory"
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "roots",
-            "schema": {
-              "type": "boolean"
-            },
-            "description": "Only return root sessions (no parentID)"
-          },
-          {
-            "in": "query",
-            "name": "start",
-            "schema": {
-              "type": "number"
-            },
-            "description": "Filter sessions updated on or after this timestamp (milliseconds since epoch)"
-          },
-          {
-            "in": "query",
-            "name": "cursor",
-            "schema": {
-              "type": "number"
-            },
-            "description": "Return sessions updated before this timestamp (milliseconds since epoch)"
-          },
-          {
-            "in": "query",
-            "name": "search",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Filter sessions by title (case-insensitive)"
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "schema": {
-              "type": "number"
-            },
-            "description": "Maximum number of sessions to return"
-          },
-          {
-            "in": "query",
-            "name": "archived",
-            "schema": {
-              "type": "boolean"
-            },
-            "description": "Include archived sessions (default false)"
-          }
-        ],
-        "summary": "List sessions",
-        "description": "Get a list of all OpenCode sessions across projects, sorted by most recently updated. Archived sessions are excluded by default.",
-        "responses": {
-          "200": {
-            "description": "List of sessions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GlobalSession"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-codeSamples": [
-          {
-            "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.experimental.session.list({\n  ...\n})"
-          }
-        ]
-      }
-    },
     "/experimental/resource": {
       "get": {
         "operationId": "experimental.resource.list",
@@ -1659,13 +1209,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -1710,13 +1253,6 @@
               "type": "string"
             },
             "description": "Filter sessions by project directory"
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           },
           {
             "in": "query",
@@ -1784,13 +1320,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Create session",
@@ -1832,10 +1361,6 @@
                   },
                   "permission": {
                     "$ref": "#/components/schemas/PermissionRuleset"
-                  },
-                  "workspaceID": {
-                    "type": "string",
-                    "pattern": "^wrk.*"
                   }
                 }
               }
@@ -1857,13 +1382,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -1914,13 +1432,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -1988,13 +1499,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -2051,13 +1555,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -2147,13 +1644,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -2221,13 +1711,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -2289,13 +1772,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -2386,13 +1862,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -2446,13 +1915,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -2520,13 +1982,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -2582,13 +2037,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -2657,13 +2105,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -2713,13 +2154,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -2810,13 +2244,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -2895,13 +2322,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -3054,13 +2474,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -3131,9 +2544,11 @@
             "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.message({\n  ...\n})"
           }
         ]
-      },
-      "delete": {
-        "operationId": "session.deleteMessage",
+      }
+    },
+    "/session/{sessionID}/knowledge-packs": {
+      "get": {
+        "operationId": "session.knowledgePacks",
         "parameters": [
           {
             "in": "query",
@@ -3143,8 +2558,143 @@
             }
           },
           {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Session ID"
+          }
+        ],
+        "summary": "List knowledge packs",
+        "description": "Get all knowledge pack messages injected into a session.",
+        "responses": {
+          "200": {
+            "description": "Knowledge packs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "displayName": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["id", "name", "displayName", "version"]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.knowledgePacks({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/knowledge-packs/available": {
+      "get": {
+        "operationId": "session.knowledgePacksAvailable",
+        "parameters": [
+          {
             "in": "query",
-            "name": "workspace",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Session ID"
+          }
+        ],
+        "summary": "List available knowledge packs",
+        "description": "Get all knowledge packs available in the library directory (~/.config/opencode/llm_knowledge_packs/).",
+        "responses": {
+          "200": {
+            "description": "Available knowledge packs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "displayName": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": ["name", "displayName", "version", "enabled"]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.knowledgePacksAvailable({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/knowledge-packs/{name}/{version}": {
+      "post": {
+        "operationId": "session.knowledgePackAdd",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
             "schema": {
               "type": "string"
             }
@@ -3160,19 +2710,28 @@
           },
           {
             "in": "path",
-            "name": "messageID",
+            "name": "name",
             "schema": {
               "type": "string"
             },
             "required": true,
-            "description": "Message ID"
+            "description": "Knowledge pack name"
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Knowledge pack version"
           }
         ],
-        "summary": "Delete message",
-        "description": "Permanently delete a specific message (and all of its parts) from a session. This does not revert any file changes that may have been made while processing the message.",
+        "summary": "Add a knowledge pack to session",
+        "description": "Inject a knowledge pack from the library into the session.",
         "responses": {
           "200": {
-            "description": "Successfully deleted message",
+            "description": "Knowledge pack added",
             "content": {
               "application/json": {
                 "schema": {
@@ -3205,7 +2764,86 @@
         "x-codeSamples": [
           {
             "lang": "js",
-            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.deleteMessage({\n  ...\n})"
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.knowledgePackAdd({\n  ...\n})"
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "session.knowledgePackRemove",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Session ID"
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Knowledge pack name"
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Knowledge pack version"
+          }
+        ],
+        "summary": "Remove a knowledge pack from session",
+        "description": "Remove an injected knowledge pack from the session.",
+        "responses": {
+          "200": {
+            "description": "Knowledge pack removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.session.knowledgePackRemove({\n  ...\n})"
           }
         ]
       }
@@ -3217,13 +2855,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -3302,13 +2933,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -3398,13 +3022,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -3533,13 +3150,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -3683,13 +3293,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -3783,13 +3386,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -3872,13 +3468,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "sessionID",
             "schema": {
@@ -3936,13 +3525,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -4035,13 +3617,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "requestID",
             "schema": {
@@ -4121,13 +3696,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "List pending permissions",
@@ -4165,13 +3733,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "List pending questions",
@@ -4206,13 +3767,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -4299,13 +3853,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "requestID",
             "schema": {
@@ -4363,13 +3910,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -4635,13 +4175,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Get provider auth methods",
@@ -4682,13 +4215,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -4763,13 +4289,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "providerID",
             "schema": {
@@ -4838,13 +4357,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -4947,13 +4459,6 @@
           },
           {
             "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
             "name": "query",
             "schema": {
               "type": "string"
@@ -5024,13 +4529,6 @@
           },
           {
             "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
             "name": "query",
             "schema": {
               "type": "string"
@@ -5070,13 +4568,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -5128,13 +4619,6 @@
           },
           {
             "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
             "name": "path",
             "schema": {
               "type": "string"
@@ -5171,13 +4655,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -5218,13 +4695,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Get MCP status",
@@ -5260,13 +4730,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -5347,13 +4810,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "schema": {
               "type": "string"
             },
@@ -5421,13 +4877,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "schema": {
               "type": "string"
             },
@@ -5482,13 +4931,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -5572,13 +5014,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "schema": {
               "type": "string"
             },
@@ -5641,13 +5076,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "name",
             "schema": {
@@ -5689,13 +5117,6 @@
             }
           },
           {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "name",
             "schema": {
@@ -5732,13 +5153,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -5801,13 +5215,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Open help dialog",
@@ -5839,13 +5246,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -5883,13 +5283,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Open themes dialog",
@@ -5921,13 +5314,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -5965,13 +5351,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Submit TUI prompt",
@@ -6006,13 +5385,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Clear TUI prompt",
@@ -6044,13 +5416,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -6113,13 +5478,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Show TUI toast",
@@ -6178,13 +5536,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -6251,13 +5602,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -6332,13 +5676,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Get next TUI request",
@@ -6377,13 +5714,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -6428,13 +5758,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Dispose instance",
@@ -6466,13 +5789,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -6510,13 +5826,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Get VCS info",
@@ -6548,13 +5857,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -6592,13 +5894,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -6679,13 +5974,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "List agents",
@@ -6720,13 +6008,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -6782,13 +6063,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Get LSP status",
@@ -6826,13 +6100,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "summary": "Get formatter status",
@@ -6867,13 +6134,6 @@
           {
             "in": "query",
             "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
             "schema": {
               "type": "string"
             }
@@ -7263,6 +6523,9 @@
           },
           "variant": {
             "type": "string"
+          },
+          "flux": {
+            "type": "string"
           }
         },
         "required": ["id", "sessionID", "role", "time", "agent", "model"]
@@ -7549,6 +6812,9 @@
             "type": "string"
           },
           "finish": {
+            "type": "string"
+          },
+          "flux": {
             "type": "string"
           }
         },
@@ -8324,9 +7590,6 @@
           },
           "auto": {
             "type": "boolean"
-          },
-          "overflow": {
-            "type": "boolean"
           }
         },
         "required": ["id", "sessionID", "messageID", "type", "auto"]
@@ -9083,9 +8346,6 @@
           "projectID": {
             "type": "string"
           },
-          "workspaceID": {
-            "type": "string"
-          },
           "directory": {
             "type": "string"
           },
@@ -9310,44 +8570,6 @@
                 "type": "string"
               }
             }
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.workspace.ready": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "workspace.ready"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string"
-              }
-            },
-            "required": ["name"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
-      "Event.workspace.failed": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "workspace.failed"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "message": {
-                "type": "string"
-              }
-            },
-            "required": ["message"]
           }
         },
         "required": ["type", "properties"]
@@ -9620,12 +8842,6 @@
             "$ref": "#/components/schemas/Event.vcs.branch.updated"
           },
           {
-            "$ref": "#/components/schemas/Event.workspace.ready"
-          },
-          {
-            "$ref": "#/components/schemas/Event.workspace.failed"
-          },
-          {
             "$ref": "#/components/schemas/Event.pty.created"
           },
           {
@@ -9656,6 +8872,483 @@
           }
         },
         "required": ["directory", "payload"]
+      },
+      "KeybindsConfig": {
+        "description": "Custom keybind configurations",
+        "type": "object",
+        "properties": {
+          "leader": {
+            "description": "Leader key for keybind combinations",
+            "default": "ctrl+x",
+            "type": "string"
+          },
+          "app_exit": {
+            "description": "Exit the application",
+            "default": "ctrl+c,ctrl+d,<leader>q",
+            "type": "string"
+          },
+          "editor_open": {
+            "description": "Open external editor",
+            "default": "<leader>e",
+            "type": "string"
+          },
+          "theme_list": {
+            "description": "List available themes",
+            "default": "<leader>t",
+            "type": "string"
+          },
+          "sidebar_toggle": {
+            "description": "Toggle sidebar",
+            "default": "<leader>b",
+            "type": "string"
+          },
+          "scrollbar_toggle": {
+            "description": "Toggle session scrollbar",
+            "default": "none",
+            "type": "string"
+          },
+          "username_toggle": {
+            "description": "Toggle username visibility",
+            "default": "none",
+            "type": "string"
+          },
+          "status_view": {
+            "description": "View status",
+            "default": "<leader>s",
+            "type": "string"
+          },
+          "session_export": {
+            "description": "Export session to editor",
+            "default": "<leader>x",
+            "type": "string"
+          },
+          "session_new": {
+            "description": "Create a new session",
+            "default": "<leader>n",
+            "type": "string"
+          },
+          "session_list": {
+            "description": "List all sessions",
+            "default": "<leader>l",
+            "type": "string"
+          },
+          "session_timeline": {
+            "description": "Show session timeline",
+            "default": "<leader>g",
+            "type": "string"
+          },
+          "session_fork": {
+            "description": "Fork session from message",
+            "default": "none",
+            "type": "string"
+          },
+          "session_rename": {
+            "description": "Rename session",
+            "default": "ctrl+r",
+            "type": "string"
+          },
+          "session_delete": {
+            "description": "Delete session",
+            "default": "ctrl+d",
+            "type": "string"
+          },
+          "stash_delete": {
+            "description": "Delete stash entry",
+            "default": "ctrl+d",
+            "type": "string"
+          },
+          "model_provider_list": {
+            "description": "Open provider list from model dialog",
+            "default": "ctrl+a",
+            "type": "string"
+          },
+          "model_favorite_toggle": {
+            "description": "Toggle model favorite status",
+            "default": "ctrl+f",
+            "type": "string"
+          },
+          "session_share": {
+            "description": "Share current session",
+            "default": "none",
+            "type": "string"
+          },
+          "session_unshare": {
+            "description": "Unshare current session",
+            "default": "none",
+            "type": "string"
+          },
+          "session_interrupt": {
+            "description": "Interrupt current session",
+            "default": "escape",
+            "type": "string"
+          },
+          "session_compact": {
+            "description": "Compact the session",
+            "default": "<leader>c",
+            "type": "string"
+          },
+          "messages_page_up": {
+            "description": "Scroll messages up by one page",
+            "default": "pageup,ctrl+alt+b",
+            "type": "string"
+          },
+          "messages_page_down": {
+            "description": "Scroll messages down by one page",
+            "default": "pagedown,ctrl+alt+f",
+            "type": "string"
+          },
+          "messages_line_up": {
+            "description": "Scroll messages up by one line",
+            "default": "ctrl+alt+y",
+            "type": "string"
+          },
+          "messages_line_down": {
+            "description": "Scroll messages down by one line",
+            "default": "ctrl+alt+e",
+            "type": "string"
+          },
+          "messages_half_page_up": {
+            "description": "Scroll messages up by half page",
+            "default": "ctrl+alt+u",
+            "type": "string"
+          },
+          "messages_half_page_down": {
+            "description": "Scroll messages down by half page",
+            "default": "ctrl+alt+d",
+            "type": "string"
+          },
+          "messages_first": {
+            "description": "Navigate to first message",
+            "default": "ctrl+g,home",
+            "type": "string"
+          },
+          "messages_last": {
+            "description": "Navigate to last message",
+            "default": "ctrl+alt+g,end",
+            "type": "string"
+          },
+          "messages_next": {
+            "description": "Navigate to next message",
+            "default": "none",
+            "type": "string"
+          },
+          "messages_previous": {
+            "description": "Navigate to previous message",
+            "default": "none",
+            "type": "string"
+          },
+          "messages_last_user": {
+            "description": "Navigate to last user message",
+            "default": "none",
+            "type": "string"
+          },
+          "messages_copy": {
+            "description": "Copy message",
+            "default": "<leader>y",
+            "type": "string"
+          },
+          "messages_undo": {
+            "description": "Undo message",
+            "default": "<leader>u",
+            "type": "string"
+          },
+          "messages_redo": {
+            "description": "Redo message",
+            "default": "<leader>r",
+            "type": "string"
+          },
+          "messages_toggle_conceal": {
+            "description": "Toggle code block concealment in messages",
+            "default": "<leader>h",
+            "type": "string"
+          },
+          "tool_details": {
+            "description": "Toggle tool details visibility",
+            "default": "none",
+            "type": "string"
+          },
+          "model_list": {
+            "description": "List available models",
+            "default": "<leader>m",
+            "type": "string"
+          },
+          "model_cycle_recent": {
+            "description": "Next recently used model",
+            "default": "f2",
+            "type": "string"
+          },
+          "model_cycle_recent_reverse": {
+            "description": "Previous recently used model",
+            "default": "shift+f2",
+            "type": "string"
+          },
+          "model_cycle_favorite": {
+            "description": "Next favorite model",
+            "default": "none",
+            "type": "string"
+          },
+          "model_cycle_favorite_reverse": {
+            "description": "Previous favorite model",
+            "default": "none",
+            "type": "string"
+          },
+          "command_list": {
+            "description": "List available commands",
+            "default": "ctrl+p",
+            "type": "string"
+          },
+          "agent_list": {
+            "description": "List agents",
+            "default": "<leader>a",
+            "type": "string"
+          },
+          "agent_cycle": {
+            "description": "Next agent",
+            "default": "tab",
+            "type": "string"
+          },
+          "agent_cycle_reverse": {
+            "description": "Previous agent",
+            "default": "shift+tab",
+            "type": "string"
+          },
+          "variant_cycle": {
+            "description": "Cycle model variants",
+            "default": "ctrl+t",
+            "type": "string"
+          },
+          "input_clear": {
+            "description": "Clear input field",
+            "default": "ctrl+c",
+            "type": "string"
+          },
+          "input_paste": {
+            "description": "Paste from clipboard",
+            "default": "ctrl+v",
+            "type": "string"
+          },
+          "input_submit": {
+            "description": "Submit input",
+            "default": "return",
+            "type": "string"
+          },
+          "input_newline": {
+            "description": "Insert newline in input",
+            "default": "shift+return,ctrl+return,alt+return,ctrl+j",
+            "type": "string"
+          },
+          "input_move_left": {
+            "description": "Move cursor left in input",
+            "default": "left,ctrl+b",
+            "type": "string"
+          },
+          "input_move_right": {
+            "description": "Move cursor right in input",
+            "default": "right,ctrl+f",
+            "type": "string"
+          },
+          "input_move_up": {
+            "description": "Move cursor up in input",
+            "default": "up",
+            "type": "string"
+          },
+          "input_move_down": {
+            "description": "Move cursor down in input",
+            "default": "down",
+            "type": "string"
+          },
+          "input_select_left": {
+            "description": "Select left in input",
+            "default": "shift+left",
+            "type": "string"
+          },
+          "input_select_right": {
+            "description": "Select right in input",
+            "default": "shift+right",
+            "type": "string"
+          },
+          "input_select_up": {
+            "description": "Select up in input",
+            "default": "shift+up",
+            "type": "string"
+          },
+          "input_select_down": {
+            "description": "Select down in input",
+            "default": "shift+down",
+            "type": "string"
+          },
+          "input_line_home": {
+            "description": "Move to start of line in input",
+            "default": "ctrl+a",
+            "type": "string"
+          },
+          "input_line_end": {
+            "description": "Move to end of line in input",
+            "default": "ctrl+e",
+            "type": "string"
+          },
+          "input_select_line_home": {
+            "description": "Select to start of line in input",
+            "default": "ctrl+shift+a",
+            "type": "string"
+          },
+          "input_select_line_end": {
+            "description": "Select to end of line in input",
+            "default": "ctrl+shift+e",
+            "type": "string"
+          },
+          "input_visual_line_home": {
+            "description": "Move to start of visual line in input",
+            "default": "alt+a",
+            "type": "string"
+          },
+          "input_visual_line_end": {
+            "description": "Move to end of visual line in input",
+            "default": "alt+e",
+            "type": "string"
+          },
+          "input_select_visual_line_home": {
+            "description": "Select to start of visual line in input",
+            "default": "alt+shift+a",
+            "type": "string"
+          },
+          "input_select_visual_line_end": {
+            "description": "Select to end of visual line in input",
+            "default": "alt+shift+e",
+            "type": "string"
+          },
+          "input_buffer_home": {
+            "description": "Move to start of buffer in input",
+            "default": "home",
+            "type": "string"
+          },
+          "input_buffer_end": {
+            "description": "Move to end of buffer in input",
+            "default": "end",
+            "type": "string"
+          },
+          "input_select_buffer_home": {
+            "description": "Select to start of buffer in input",
+            "default": "shift+home",
+            "type": "string"
+          },
+          "input_select_buffer_end": {
+            "description": "Select to end of buffer in input",
+            "default": "shift+end",
+            "type": "string"
+          },
+          "input_delete_line": {
+            "description": "Delete line in input",
+            "default": "ctrl+shift+d",
+            "type": "string"
+          },
+          "input_delete_to_line_end": {
+            "description": "Delete to end of line in input",
+            "default": "ctrl+k",
+            "type": "string"
+          },
+          "input_delete_to_line_start": {
+            "description": "Delete to start of line in input",
+            "default": "ctrl+u",
+            "type": "string"
+          },
+          "input_backspace": {
+            "description": "Backspace in input",
+            "default": "backspace,shift+backspace",
+            "type": "string"
+          },
+          "input_delete": {
+            "description": "Delete character in input",
+            "default": "ctrl+d,delete,shift+delete",
+            "type": "string"
+          },
+          "input_undo": {
+            "description": "Undo in input",
+            "default": "ctrl+-,super+z",
+            "type": "string"
+          },
+          "input_redo": {
+            "description": "Redo in input",
+            "default": "ctrl+.,super+shift+z",
+            "type": "string"
+          },
+          "input_word_forward": {
+            "description": "Move word forward in input",
+            "default": "alt+f,alt+right,ctrl+right",
+            "type": "string"
+          },
+          "input_word_backward": {
+            "description": "Move word backward in input",
+            "default": "alt+b,alt+left,ctrl+left",
+            "type": "string"
+          },
+          "input_select_word_forward": {
+            "description": "Select word forward in input",
+            "default": "alt+shift+f,alt+shift+right",
+            "type": "string"
+          },
+          "input_select_word_backward": {
+            "description": "Select word backward in input",
+            "default": "alt+shift+b,alt+shift+left",
+            "type": "string"
+          },
+          "input_delete_word_forward": {
+            "description": "Delete word forward in input",
+            "default": "alt+d,alt+delete,ctrl+delete",
+            "type": "string"
+          },
+          "input_delete_word_backward": {
+            "description": "Delete word backward in input",
+            "default": "ctrl+w,ctrl+backspace,alt+backspace",
+            "type": "string"
+          },
+          "history_previous": {
+            "description": "Previous history item",
+            "default": "up",
+            "type": "string"
+          },
+          "history_next": {
+            "description": "Next history item",
+            "default": "down",
+            "type": "string"
+          },
+          "session_child_cycle": {
+            "description": "Next child session",
+            "default": "<leader>right",
+            "type": "string"
+          },
+          "session_child_cycle_reverse": {
+            "description": "Previous child session",
+            "default": "<leader>left",
+            "type": "string"
+          },
+          "session_parent": {
+            "description": "Go to parent session",
+            "default": "<leader>up",
+            "type": "string"
+          },
+          "terminal_suspend": {
+            "description": "Suspend terminal",
+            "default": "ctrl+z",
+            "type": "string"
+          },
+          "terminal_title_toggle": {
+            "description": "Toggle terminal title",
+            "default": "none",
+            "type": "string"
+          },
+          "tips_toggle": {
+            "description": "Toggle tips on home screen",
+            "default": "<leader>h",
+            "type": "string"
+          },
+          "display_thinking": {
+            "description": "Toggle thinking blocks visibility",
+            "default": "none",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "LogLevel": {
         "description": "Log level",
@@ -10112,12 +9805,6 @@
                     "const": false
                   }
                 ]
-              },
-              "chunkTimeout": {
-                "description": "Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.",
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991
               }
             },
             "additionalProperties": {}
@@ -10242,8 +9929,42 @@
             "description": "JSON schema reference for configuration validation",
             "type": "string"
           },
+          "theme": {
+            "description": "Theme name to use for the interface",
+            "type": "string"
+          },
+          "keybinds": {
+            "$ref": "#/components/schemas/KeybindsConfig"
+          },
           "logLevel": {
             "$ref": "#/components/schemas/LogLevel"
+          },
+          "tui": {
+            "description": "TUI specific settings",
+            "type": "object",
+            "properties": {
+              "scroll_speed": {
+                "description": "TUI scroll speed",
+                "type": "number",
+                "minimum": 0.001
+              },
+              "scroll_acceleration": {
+                "description": "Scroll acceleration settings",
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "description": "Enable scroll acceleration",
+                    "type": "boolean"
+                  }
+                },
+                "required": ["enabled"]
+              },
+              "diff_style": {
+                "description": "Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column",
+                "type": "string",
+                "enum": ["auto", "stacked"]
+              }
+            }
           },
           "server": {
             "$ref": "#/components/schemas/ServerConfig"
@@ -10603,11 +10324,122 @@
                 "description": "Enable pruning of old tool outputs (default: true)",
                 "type": "boolean"
               },
+              "method": {
+                "description": "Compaction method: 'standard' summarizes entire conversation, 'collapse' extracts oldest messages and creates summary at breakpoint, 'float' automatically sub-collapses oldest chains before evaluating context overflow (default: standard)",
+                "type": "string",
+                "enum": ["standard", "collapse", "float"]
+              },
+              "trigger": {
+                "description": "Trigger compaction at this fraction of total context (default: 0.85 = 85%)",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "extractRatio": {
+                "description": "For collapse mode: fraction of oldest tokens to extract and summarize (default: 0.65)",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "recentRatio": {
+                "description": "For collapse mode: fraction of newest tokens to use as reference context (default: 0.15)",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "summaryMaxTokens": {
+                "description": "For collapse mode: target token count for the summary output (default: 10000)",
+                "type": "number",
+                "minimum": 1000,
+                "maximum": 50000
+              },
+              "previousSummaries": {
+                "description": "For collapse mode: number of previous summaries to include for context merging (default: 3)",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10
+              },
+              "insertTriggers": {
+                "description": "Whether to insert compaction trigger messages in the stream. Standard compaction needs triggers (default: true), collapse compaction does not (default: false)",
+                "type": "boolean"
+              },
+              "splitChain": {
+                "description": "For collapse mode: allow inserting breakpoints in the middle of chains (default: true). When false, breakpoints only occur at chain boundaries to preserve conversation flow.",
+                "type": "boolean"
+              },
+              "splitChainMinThreshold": {
+                "description": "For collapse mode with splitChain=true: minimum fraction of extractTarget that must be covered when rewinding to chain boundary before falling back to mid-chain split (default: 0.75). E.g. 0.75 means the rewind must still extract at least 75% of the token target to be accepted.",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "float": {
+                "description": "Float mode settings for automatic chain sub-collapse",
+                "type": "object",
+                "properties": {
+                  "chainThreshold": {
+                    "description": "Number of chains before triggering sub-collapse on oldest chain (default: 3)",
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 20
+                  },
+                  "algorithm": {
+                    "description": "Sub-collapse algorithm: 'full' includes all context, 'bookend' focuses on user request + final response + tools, 'minimal' uses only final response (default: bookend)",
+                    "type": "string",
+                    "enum": ["full", "bookend", "minimal"]
+                  },
+                  "subCollapseSummaryMaxTokens": {
+                    "description": "Target token count for sub-collapse summaries (default: 5000)",
+                    "type": "number",
+                    "minimum": 500,
+                    "maximum": 20000
+                  }
+                }
+              },
               "reserved": {
                 "description": "Token buffer for compaction. Leaves enough window to avoid overflow during compaction.",
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 9007199254740991
+              }
+            }
+          },
+          "knowledge": {
+            "description": "Knowledge pack settings",
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "description": "Enable knowledge pack injection (default: true)",
+                "type": "boolean"
+              },
+              "paths": {
+                "description": "Additional directories to scan for .yaml knowledge pack files",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "packs": {
+                "description": "Knowledge packs to enable or disable by default",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "Knowledge pack name",
+                      "type": "string"
+                    },
+                    "version": {
+                      "description": "Knowledge pack version",
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "description": "Whether to enable this knowledge pack by default",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["name", "version", "enabled"]
+                }
               }
             }
           },
@@ -11041,60 +10873,6 @@
           "$ref": "#/components/schemas/ToolListItem"
         }
       },
-      "Workspace": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^wrk.*"
-          },
-          "type": {
-            "type": "string"
-          },
-          "branch": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "directory": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "extra": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "projectID": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "type", "branch", "name", "directory", "extra", "projectID"]
-      },
       "Worktree": {
         "type": "object",
         "properties": {
@@ -11139,132 +10917,6 @@
           }
         },
         "required": ["directory"]
-      },
-      "ProjectSummary": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "worktree": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "worktree"]
-      },
-      "GlobalSession": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^ses.*"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "projectID": {
-            "type": "string"
-          },
-          "workspaceID": {
-            "type": "string"
-          },
-          "directory": {
-            "type": "string"
-          },
-          "parentID": {
-            "type": "string",
-            "pattern": "^ses.*"
-          },
-          "summary": {
-            "type": "object",
-            "properties": {
-              "additions": {
-                "type": "number"
-              },
-              "deletions": {
-                "type": "number"
-              },
-              "files": {
-                "type": "number"
-              },
-              "diffs": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/FileDiff"
-                }
-              }
-            },
-            "required": ["additions", "deletions", "files"]
-          },
-          "share": {
-            "type": "object",
-            "properties": {
-              "url": {
-                "type": "string"
-              }
-            },
-            "required": ["url"]
-          },
-          "title": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          },
-          "time": {
-            "type": "object",
-            "properties": {
-              "created": {
-                "type": "number"
-              },
-              "updated": {
-                "type": "number"
-              },
-              "compacting": {
-                "type": "number"
-              },
-              "archived": {
-                "type": "number"
-              }
-            },
-            "required": ["created", "updated"]
-          },
-          "permission": {
-            "$ref": "#/components/schemas/PermissionRuleset"
-          },
-          "revert": {
-            "type": "object",
-            "properties": {
-              "messageID": {
-                "type": "string"
-              },
-              "partID": {
-                "type": "string"
-              },
-              "snapshot": {
-                "type": "string"
-              },
-              "diff": {
-                "type": "string"
-              }
-            },
-            "required": ["messageID"]
-          },
-          "project": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ProjectSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": ["id", "slug", "projectID", "directory", "title", "version", "time", "project"]
       },
       "McpResource": {
         "type": "object",
