@@ -1812,10 +1812,28 @@ Write extracted content directly as factual statements. Settled, conflict-free, 
         return null
       }
 
-      // Reload messages after sub-collapse so chain detection reflects the new state
+      // Compute updated token count as a delta: subtract the chain tokens that were
+      // collapsed and add back only the summary tokens the model returned. This avoids
+      // re-estimating the entire message list from scratch (which under-counts because
+      // estimateMessageTokens misses reasoning, step-start, and system overhead) and
+      // gives an accurate running total that the minFloat gate can evaluate correctly.
+      const nextTokenCount = tokenCount - chain.chainTokens + (result.summaryTokens ?? 0)
+
+      // Reload messages so chain detection sees the updated conversation state,
+      // but use the delta-computed token count rather than re-estimating from the list.
       const next = await MessageV2.filterCompacted(MessageV2.stream(input.sessionID))
-      const estimated = next.reduce((sum, m) => sum + estimateMessageTokens(m), 0)
-      return (await collapseNext(next, estimated)) ?? next
+
+      log.info("COLLAPSE float mode chain collapsed", {
+        sessionID: input.sessionID,
+        tokensBefore: tokenCount,
+        chainTokensRemoved: chain.chainTokens,
+        summaryTokensAdded: result.summaryTokens ?? 0,
+        tokensAfter: nextTokenCount,
+        usedFractionAfter: input.contextLimit > 0 ? (nextTokenCount / input.contextLimit).toFixed(3) : "n/a",
+        minFloat,
+      })
+
+      return (await collapseNext(next, nextTokenCount)) ?? next
     }
 
     const final = await collapseNext(input.messages, initialTokenCount)
