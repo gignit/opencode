@@ -57,6 +57,7 @@ export namespace CompactionExtension {
     splitChainMinThreshold: 0.75, // Min fraction of extractTarget required when rewinding to chain start; below this, fall back to mid-chain split
     float: {
       chainThreshold: 3, // Number of chains before sub-collapse triggers
+      minFloat: 0.6, // Minimum context used fraction required before sub-collapse is evaluated (60%)
       algorithm: "bookend" as SubCollapseAlgorithm,
       subCollapseSummaryMaxTokens: 5000,
     },
@@ -1713,10 +1714,16 @@ Write extracted content directly as factual statements. Settled, conflict-free, 
     sessionID: string
     messages: MessageV2.WithParts[]
     abort: AbortSignal
+    tokens: MessageV2.Assistant["tokens"]
+    contextLimit: number
   }): Promise<{ subCollapsed: boolean; messages: MessageV2.WithParts[] }> {
     const method = await getMethod()
 
     if (method !== "float") return { subCollapsed: false, messages: input.messages }
+
+    const config = await Config.get()
+    const floatConfig = config.compaction?.float
+    const minFloat = floatConfig?.minFloat ?? DEFAULTS.float.minFloat
 
     // Log message analysis to debug filterCompacted behavior
     const firstMsg = input.messages[0]
@@ -1743,6 +1750,11 @@ Write extracted content directly as factual statements. Settled, conflict-free, 
       }))
       .filter((m) => m.summary === true)
 
+    // Compute initial context usage fraction from actual token counts
+    const initialTokenCount =
+      input.tokens.input + input.tokens.cache.read + input.tokens.cache.write + input.tokens.output
+    const initialUsedFraction = input.contextLimit > 0 ? initialTokenCount / input.contextLimit : 0
+
     log.info("COLLAPSE float mode begin", {
       sessionID: input.sessionID,
       messages: input.messages.length,
@@ -1750,32 +1762,72 @@ Write extracted content directly as factual statements. Settled, conflict-free, 
       summaries: summaries.length,
       oldestMsgId: firstMsg?.info.id,
       newestMsgId: lastMsg?.info.id,
+      minFloat,
+      initialTokenCount,
+      contextLimit: input.contextLimit,
+      initialUsedFraction: initialUsedFraction.toFixed(3),
+      minFloatCheck: initialUsedFraction >= minFloat ? "pass" : "skip",
     })
 
-    const chainToCollapse = await shouldFloatSubCollapse(input.messages, input.sessionID)
-
-    if (!chainToCollapse) return { subCollapsed: false, messages: input.messages }
-
-    const result = await executeSubCollapse({
-      sessionID: input.sessionID,
-      messages: input.messages,
-      chain: chainToCollapse,
-      abort: input.abort,
-    })
-
-    if (result.status === "error") {
-      log.error("COLLAPSE float mode sub-collapse failed")
+    // If context usage is below minFloat threshold, skip sub-collapse evaluation entirely
+    if (initialUsedFraction < minFloat) {
+      log.info("COLLAPSE float mode skipped: context usage below minFloat", {
+        sessionID: input.sessionID,
+        usedFraction: initialUsedFraction.toFixed(3),
+        minFloat,
+      })
       return { subCollapsed: false, messages: input.messages }
     }
+
+    // Collapse one chain at a time, re-checking minFloat after each.
+    // Returns the final message list after all collapses, or null if none occurred.
+    async function collapseNext(
+      messages: MessageV2.WithParts[],
+      tokenCount: number,
+    ): Promise<MessageV2.WithParts[] | null> {
+      const used = input.contextLimit > 0 ? tokenCount / input.contextLimit : 0
+      if (used < minFloat) {
+        log.info("COLLAPSE float mode stopping: context usage dropped below minFloat", {
+          sessionID: input.sessionID,
+          tokenCount,
+          contextLimit: input.contextLimit,
+          used: used.toFixed(3),
+          minFloat,
+        })
+        return null
+      }
+
+      const chain = await shouldFloatSubCollapse(messages, input.sessionID)
+      if (!chain) return null
+
+      const result = await executeSubCollapse({
+        sessionID: input.sessionID,
+        messages,
+        chain,
+        abort: input.abort,
+      })
+
+      if (result.status === "error") {
+        log.error("COLLAPSE float mode sub-collapse failed")
+        return null
+      }
+
+      // Reload messages after sub-collapse so chain detection reflects the new state
+      const next = await MessageV2.filterCompacted(MessageV2.stream(input.sessionID))
+      const estimated = next.reduce((sum, m) => sum + estimateMessageTokens(m), 0)
+      return (await collapseNext(next, estimated)) ?? next
+    }
+
+    const final = await collapseNext(input.messages, initialTokenCount)
+    if (!final) return { subCollapsed: false, messages: input.messages }
 
     log.info("COLLAPSE float mode complete", {
       sessionID: input.sessionID,
       subCollapsed: true,
-      messages: input.messages.length,
+      messages: final.length,
     })
 
     // Return subCollapsed: true to signal the main loop should reload and re-filter messages
-    // We don't reload here because Session.messages() doesn't apply filterCompacted()
-    return { subCollapsed: true, messages: input.messages }
+    return { subCollapsed: true, messages: final }
   }
 }

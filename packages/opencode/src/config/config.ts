@@ -1234,6 +1234,14 @@ export namespace Config {
                 .max(20)
                 .optional()
                 .describe("Number of chains before triggering sub-collapse on oldest chain (default: 3)"),
+              minFloat: z
+                .number()
+                .min(0)
+                .max(1)
+                .optional()
+                .describe(
+                  "Minimum fraction of context window that must be used before sub-collapse chains are evaluated (default: 0.6 = 60%). Sub-collapse is skipped entirely when context usage is below this threshold, and stops between chains if usage drops below it.",
+                ),
               algorithm: z
                 .enum(["full", "bookend", "minimal"])
                 .optional()

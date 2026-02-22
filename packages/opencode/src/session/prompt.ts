@@ -579,6 +579,8 @@ export namespace SessionPrompt {
           sessionID,
           messages: msgs,
           abort,
+          tokens: lastFinished.tokens,
+          contextLimit: model.limit.context,
         })
         if (floatResult.subCollapsed) {
           // Reload and re-filter messages after sub-collapse, then continue loop
