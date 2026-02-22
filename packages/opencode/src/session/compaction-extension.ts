@@ -1812,26 +1812,57 @@ Write extracted content directly as factual statements. Settled, conflict-free, 
         return null
       }
 
-      // Compute updated token count as a delta: subtract the chain tokens that were
-      // collapsed and add back only the summary tokens the model returned. This avoids
-      // re-estimating the entire message list from scratch (which under-counts because
-      // estimateMessageTokens misses reasoning, step-start, and system overhead) and
-      // gives an accurate running total that the minFloat gate can evaluate correctly.
-      const nextTokenCount = tokenCount - chain.chainTokens + (result.summaryTokens ?? 0)
+      const summaryTokens = result.summaryTokens ?? 0
+      const nextTokenCount = tokenCount - chain.chainTokens + summaryTokens
 
-      // Reload messages so chain detection sees the updated conversation state,
-      // but use the delta-computed token count rather than re-estimating from the list.
+      // Mirror what process() does at lines 839-888: find the chronologically last
+      // real assistant message (excluding the new sub-collapse summary) and patch its
+      // stored token counts to reflect the reduction. Without this, lastFinished.tokens
+      // in the prompt loop still holds pre-collapse values from the database, so the
+      // minFloat gate in the next collapseNext iteration (and isOverflow on the next
+      // loop pass) would see stale high token counts and never stop collapsing.
+      const allMessages = await Session.messages({ sessionID: input.sessionID })
+      const lastReal = allMessages
+        .filter(
+          (m): m is MessageV2.WithParts & { info: MessageV2.Assistant } =>
+            m.info.role === "assistant" &&
+            m.info.id !== result.summaryMessageId &&
+            (m.info as MessageV2.Assistant).finish !== undefined,
+        )
+        .sort((a, b) => b.info.time.created - a.info.time.created)[0]
+
+      if (lastReal) {
+        const currentTotal =
+          lastReal.info.tokens.input +
+          lastReal.info.tokens.cache.read +
+          lastReal.info.tokens.cache.write +
+          lastReal.info.tokens.output
+        const newTotal = Math.max(0, currentTotal - chain.chainTokens + summaryTokens)
+        lastReal.info.tokens = {
+          input: 0,
+          output: lastReal.info.tokens.output,
+          reasoning: lastReal.info.tokens.reasoning,
+          cache: {
+            read: Math.max(0, newTotal - lastReal.info.tokens.output),
+            write: 0,
+          },
+        }
+        await Session.updateMessage(lastReal.info)
+        log.info("COLLAPSE float mode token adjustment", {
+          sessionID: input.sessionID,
+          lastRealId: lastReal.info.id,
+          chainTokensRemoved: chain.chainTokens,
+          summaryTokensAdded: summaryTokens,
+          previousTotal: currentTotal,
+          newTotal,
+          nextTokenCount,
+          usedFractionAfter: input.contextLimit > 0 ? (nextTokenCount / input.contextLimit).toFixed(3) : "n/a",
+          minFloat,
+        })
+      }
+
+      // Reload messages so chain detection sees the updated conversation state.
       const next = await MessageV2.filterCompacted(MessageV2.stream(input.sessionID))
-
-      log.info("COLLAPSE float mode chain collapsed", {
-        sessionID: input.sessionID,
-        tokensBefore: tokenCount,
-        chainTokensRemoved: chain.chainTokens,
-        summaryTokensAdded: result.summaryTokens ?? 0,
-        tokensAfter: nextTokenCount,
-        usedFractionAfter: input.contextLimit > 0 ? (nextTokenCount / input.contextLimit).toFixed(3) : "n/a",
-        minFloat,
-      })
 
       return (await collapseNext(next, nextTokenCount)) ?? next
     }
