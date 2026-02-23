@@ -628,7 +628,16 @@ export namespace SessionPrompt {
       }
 
       // normal processing
-      const agent = await Agent.get(lastUser.agent)
+      const agentBase = await Agent.get(lastUser.agent)
+      // Apply any agent prompt overrides from active knowledge packs.
+      // If a KP in this session declares `agent.<agentName>.prompt`, it replaces
+      // the agent's built-in system prompt for this loop iteration only — the
+      // global Agent registry is never mutated.
+      const kpAgentPrompts = await KnowledgePack.agentPrompts(sessionID)
+      const agent =
+        kpAgentPrompts[agentBase.name] !== undefined
+          ? { ...agentBase, prompt: kpAgentPrompts[agentBase.name] }
+          : agentBase
       const maxSteps = agent.steps ?? Infinity
       const isLastStep = step >= maxSteps
       msgs = await insertReminders({

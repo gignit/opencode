@@ -19,6 +19,10 @@ type KPFile = {
   version: string
   display_name?: string
   content: string
+  // Optional per-agent system prompt overrides. Keys are agent names (e.g. "explore"),
+  // values are prompt strings. When a pack with agent overrides is active in a session,
+  // the matching agent will use the KP-supplied prompt instead of its built-in prompt.
+  agent?: Record<string, { prompt?: string }>
   [key: string]: unknown
 }
 
@@ -29,6 +33,8 @@ export namespace KnowledgePack {
     version: string
     content: string
     file: string
+    // Per-agent system prompt overrides parsed from the YAML `agent` field.
+    agent?: Record<string, { prompt?: string }>
   }
 
   /**
@@ -82,6 +88,39 @@ ${pack.content}
     })
   }
 
+  /**
+   * Return a merged map of agent-name → prompt string from all knowledge packs
+   * currently active in the session that declare an `agent.<name>.prompt` field.
+   *
+   * Later packs in the list win over earlier ones if multiple packs override the
+   * same agent. The result is used in prompt.ts to override agent.prompt at
+   * runtime without mutating the global Agent registry.
+   */
+  export async function agentPrompts(sessionID: string): Promise<Record<string, string>> {
+    // Collect the agent keys of packs active in this session
+    const msgs = await Session.messages({ sessionID })
+    const activeKeys = new Set<string>()
+    for (const msg of msgs) {
+      if (msg.info.role !== "user") continue
+      const user = msg.info as MessageV2.User
+      if (user.flux !== "knowledge") continue
+      if (user.agent.startsWith(KP_AGENT_PREFIX)) activeKeys.add(user.agent.slice(KP_AGENT_PREFIX.length))
+    }
+    if (activeKeys.size === 0) return {}
+
+    // Load all pack files from both dirs so we can read their agent overrides
+    const packs = await load([defaultDir(), libraryDir()])
+    const result: Record<string, string> = {}
+    for (const pack of packs) {
+      if (!activeKeys.has(`${pack.name}@${pack.version}`)) continue
+      if (!pack.agent) continue
+      for (const [agentName, overrides] of Object.entries(pack.agent)) {
+        if (overrides.prompt) result[agentName] = overrides.prompt
+      }
+    }
+    return result
+  }
+
   async function load(dirs: string[]): Promise<Pack[]> {
     const packs: Pack[] = []
     for (const dir of dirs) {
@@ -106,6 +145,7 @@ ${pack.content}
             version: kp.version,
             content: kp.content.trimEnd(),
             file,
+            agent: kp.agent,
           })
         } catch (e) {
           log.warn("failed to read knowledge pack", { file, error: e })
