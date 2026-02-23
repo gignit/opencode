@@ -185,10 +185,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 <box
                   flexDirection="row"
                   gap={1}
-                  onMouseDown={() => {
-                    mcpEntries().length > 2 && setExpanded("mcp", !expanded.mcp)
-                    refocusPrompt()
-                  }}
+                  onMouseDown={() => mcpEntries().length > 2 && setExpanded("mcp", !expanded.mcp)}
                 >
                   <Show when={mcpEntries().length > 2}>
                     <text fg={theme.text}>{expanded.mcp ? "▼" : "▶"}</text>
@@ -288,10 +285,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
               <box
                 flexDirection="row"
                 gap={1}
-                onMouseDown={() => {
-                  sync.data.lsp.length > 2 && setExpanded("lsp", !expanded.lsp)
-                  refocusPrompt()
-                }}
+                onMouseDown={() => sync.data.lsp.length > 2 && setExpanded("lsp", !expanded.lsp)}
               >
                 <Show when={sync.data.lsp.length > 2}>
                   <text fg={theme.text}>{expanded.lsp ? "▼" : "▶"}</text>
@@ -335,10 +329,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 <box
                   flexDirection="row"
                   gap={1}
-                  onMouseDown={() => {
-                    todo().length > 2 && setExpanded("todo", !expanded.todo)
-                    refocusPrompt()
-                  }}
+                  onMouseDown={() => todo().length > 2 && setExpanded("todo", !expanded.todo)}
                 >
                   <Show when={todo().length > 2}>
                     <text fg={theme.text}>{expanded.todo ? "▼" : "▶"}</text>
@@ -357,10 +348,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 <box
                   flexDirection="row"
                   gap={1}
-                  onMouseDown={() => {
-                    diff().length > 2 && setExpanded("diff", !expanded.diff)
-                    refocusPrompt()
-                  }}
+                  onMouseDown={() => diff().length > 2 && setExpanded("diff", !expanded.diff)}
                 >
                   <Show when={diff().length > 2}>
                     <text fg={theme.text}>{expanded.diff ? "▼" : "▶"}</text>
@@ -414,13 +402,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                   <text fg={theme.text}>
                     <b>Getting started</b>
                   </text>
-                  <text
-                    fg={theme.textMuted}
-                    onMouseDown={() => {
-                      kv.set("dismissed_getting_started", true)
-                      refocusPrompt()
-                    }}
-                  >
+                  <text fg={theme.textMuted} onMouseDown={() => kv.set("dismissed_getting_started", true)}>
                     ✕
                   </text>
                 </box>
