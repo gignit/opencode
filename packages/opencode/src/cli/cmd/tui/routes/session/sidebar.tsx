@@ -12,6 +12,7 @@ import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
 import { useSDK } from "@tui/context/sdk"
+import { usePromptRef } from "../../context/prompt"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sync = useSync()
@@ -114,6 +115,18 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
     refetchActive()
   }
 
+  const promptRef = usePromptRef()
+
+  // After any sidebar mouse interaction opentui clears currentFocusedRenderable
+  // because sidebar box elements are not focusable renderables. Nothing else
+  // restores focus (autoFocus is false, visible prop doesn't change, no dialog
+  // is opened/closed), so keyboard input silently drops until the user clicks
+  // the prompt textarea directly. Call this after every onMouseDown to prevent
+  // the freeze.
+  function refocusPrompt() {
+    promptRef.current?.focus()
+  }
+
   const directory = useDirectory()
   const kv = useKV()
 
@@ -172,7 +185,10 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 <box
                   flexDirection="row"
                   gap={1}
-                  onMouseDown={() => mcpEntries().length > 2 && setExpanded("mcp", !expanded.mcp)}
+                  onMouseDown={() => {
+                    mcpEntries().length > 2 && setExpanded("mcp", !expanded.mcp)
+                    refocusPrompt()
+                  }}
                 >
                   <Show when={mcpEntries().length > 2}>
                     <text fg={theme.text}>{expanded.mcp ? "▼" : "▶"}</text>
@@ -238,6 +254,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                   onMouseDown={() => {
                     setKpExpanded(!kpExpanded())
                     if (!kpExpanded()) refetchAll()
+                    refocusPrompt()
                   }}
                 >
                   {kpExpanded() ? "−" : "+"}
@@ -246,7 +263,14 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
 
               <For each={visiblePacks()}>
                 {(kp) => (
-                  <box flexDirection="row" gap={1} onMouseDown={() => togglePack(kp.name, kp.version, kp.enabled)}>
+                  <box
+                    flexDirection="row"
+                    gap={1}
+                    onMouseDown={() => {
+                      togglePack(kp.name, kp.version, kp.enabled)
+                      refocusPrompt()
+                    }}
+                  >
                     <text flexShrink={0} style={{ fg: kp.enabled ? theme.success : theme.textMuted }}>
                       {kp.enabled ? "•" : "◦"}
                     </text>
@@ -264,7 +288,10 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
               <box
                 flexDirection="row"
                 gap={1}
-                onMouseDown={() => sync.data.lsp.length > 2 && setExpanded("lsp", !expanded.lsp)}
+                onMouseDown={() => {
+                  sync.data.lsp.length > 2 && setExpanded("lsp", !expanded.lsp)
+                  refocusPrompt()
+                }}
               >
                 <Show when={sync.data.lsp.length > 2}>
                   <text fg={theme.text}>{expanded.lsp ? "▼" : "▶"}</text>
@@ -308,7 +335,10 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 <box
                   flexDirection="row"
                   gap={1}
-                  onMouseDown={() => todo().length > 2 && setExpanded("todo", !expanded.todo)}
+                  onMouseDown={() => {
+                    todo().length > 2 && setExpanded("todo", !expanded.todo)
+                    refocusPrompt()
+                  }}
                 >
                   <Show when={todo().length > 2}>
                     <text fg={theme.text}>{expanded.todo ? "▼" : "▶"}</text>
@@ -327,7 +357,10 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 <box
                   flexDirection="row"
                   gap={1}
-                  onMouseDown={() => diff().length > 2 && setExpanded("diff", !expanded.diff)}
+                  onMouseDown={() => {
+                    diff().length > 2 && setExpanded("diff", !expanded.diff)
+                    refocusPrompt()
+                  }}
                 >
                   <Show when={diff().length > 2}>
                     <text fg={theme.text}>{expanded.diff ? "▼" : "▶"}</text>
@@ -381,7 +414,13 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                   <text fg={theme.text}>
                     <b>Getting started</b>
                   </text>
-                  <text fg={theme.textMuted} onMouseDown={() => kv.set("dismissed_getting_started", true)}>
+                  <text
+                    fg={theme.textMuted}
+                    onMouseDown={() => {
+                      kv.set("dismissed_getting_started", true)
+                      refocusPrompt()
+                    }}
+                  >
                     ✕
                   </text>
                 </box>
