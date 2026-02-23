@@ -315,6 +315,11 @@ export namespace SessionPrompt {
       )
     }
 
+    // Propagate manually-enabled knowledge packs from parent session into this subagent session
+    if (session.parentID) {
+      await KnowledgePack.copyFromParent({ parentSessionID: session.parentID, sessionID })
+    }
+
     while (true) {
       SessionStatus.set(sessionID, { type: "busy" })
       log.info("loop", { step, sessionID })

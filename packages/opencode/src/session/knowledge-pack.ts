@@ -264,6 +264,63 @@ ${pack.content}
   }
 
   /**
+   * Copy all active knowledge pack messages from a parent session into a child session.
+   * Used when a subagent (Task tool) creates a child session so it inherits the parent's
+   * manually-enabled knowledge packs. Idempotent: packs already present in the child
+   * are skipped (matched by agent key).
+   */
+  export async function copyFromParent(input: { parentSessionID: string; sessionID: string }): Promise<void> {
+    const parentKPs = await fromSession(input.parentSessionID)
+    if (parentKPs.length === 0) return
+
+    const childMsgs = await Session.messages({ sessionID: input.sessionID })
+    const childKeys = new Set<string>()
+    for (const msg of childMsgs) {
+      if (msg.info.role !== "user") continue
+      const user = msg.info as MessageV2.User
+      if (user.flux === "knowledge") childKeys.add(user.agent)
+    }
+
+    const toAdd = parentKPs.filter((msg) => {
+      const user = msg.info as MessageV2.User
+      return !childKeys.has(user.agent)
+    })
+    if (toAdd.length === 0) return
+
+    const offset = childKeys.size
+    for (let i = 0; i < toAdd.length; i++) {
+      const src = toAdd[i]
+      const user = src.info as MessageV2.User
+      const textPart = src.parts.find((p) => p.type === "text") as MessageV2.TextPart | undefined
+      if (!textPart?.text) continue
+
+      const idx = offset + i + 1
+      const msgId = Identifier.create("message", false, idx)
+      const partId = Identifier.create("part", false, idx)
+
+      await Session.updateMessage({
+        id: msgId,
+        sessionID: input.sessionID,
+        role: "user",
+        flux: "knowledge",
+        time: { created: idx },
+        agent: user.agent,
+        model: user.model,
+      } as MessageV2.User)
+
+      await Session.updatePart({
+        id: partId,
+        messageID: msgId,
+        sessionID: input.sessionID,
+        type: "text",
+        text: textPart.text,
+      } as MessageV2.TextPart)
+
+      log.info("knowledge pack copied from parent", { agent: user.agent, sessionID: input.sessionID })
+    }
+  }
+
+  /**
    * Remove a knowledge pack from a session by name.
    * Deletes the flux:knowledge message (CASCADE removes its parts).
    */
