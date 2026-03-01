@@ -107,15 +107,14 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
 
   function togglePack(name: string, version: string, enabled: boolean) {
     const sessionID = props.sessionID
-    // Fire-and-forget: do NOT await. The reactive kpMessageCount memo
-    // refetches activePacks when the sync store updates from the server
-    // event, so an explicit refetchActive() is unnecessary and causes a
-    // double-refetch race that can destroy renderables mid-mouse-event.
-    if (enabled) {
-      sdkDelete("/session/{sessionID}/knowledge-packs/{name}/{version}", { sessionID, name, version })
-    } else {
-      sdkPost("/session/{sessionID}/knowledge-packs/{name}/{version}", { sessionID, name, version })
-    }
+    // Fire-and-forget the SDK call, then refetch once the server responds.
+    // The refetch is deferred with setTimeout so the DOM update happens
+    // outside opentui's mouse event processing — avoiding the race that
+    // destroys renderables mid-event and corrupts focus state.
+    const req = enabled
+      ? sdkDelete("/session/{sessionID}/knowledge-packs/{name}/{version}", { sessionID, name, version })
+      : sdkPost("/session/{sessionID}/knowledge-packs/{name}/{version}", { sessionID, name, version })
+    req.then(() => setTimeout(() => refetchActive(), 1))
   }
 
   const promptRef = usePromptRef()
