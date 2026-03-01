@@ -1150,7 +1150,11 @@ ${compacting.context.join("\n\n")}
           userMessageId: msg.info.id,
         }
 
-        // Walk forward looking for assistant messages that belong to this chain
+        // Walk forward looking for assistant messages that belong to this chain.
+        // Track all user message IDs that are part of this chain so assistant messages
+        // parented to mid-run user interjections are still recognized as belonging here.
+        const chainUserIds = new Set<string>([msg.info.id])
+
         for (let j = i + 1; j < messages.length; j++) {
           const next = messages[j]
           if (next.info.role === "assistant") {
@@ -1167,8 +1171,9 @@ ${compacting.context.join("\n\n")}
               // only in the chain walk so we don't break the chain traversal.
               const parentID = nextInfo.parentID
               if (
-                parentID === msg.info.id ||
-                chain.assistantMessageIndices.some((idx) => messages[idx].info.id === parentID)
+                parentID &&
+                (chainUserIds.has(parentID) ||
+                  chain.assistantMessageIndices.some((idx) => messages[idx].info.id === parentID))
               ) {
                 // Part of this chain but already processed — skip adding to indices
                 continue
@@ -1178,12 +1183,13 @@ ${compacting.context.join("\n\n")}
             }
 
             // Check if this assistant message belongs to the chain
-            // (has parentID pointing to the user message or previous assistant in chain)
+            // (has parentID pointing to any user message in the chain or previous assistant)
             const parentID = nextInfo.parentID
 
             if (
-              parentID === msg.info.id ||
-              chain.assistantMessageIndices.some((idx) => messages[idx].info.id === parentID)
+              parentID &&
+              (chainUserIds.has(parentID) ||
+                chain.assistantMessageIndices.some((idx) => messages[idx].info.id === parentID))
             ) {
               chain.assistantMessageIndices.push(j)
               chain.allMessageIndices.push(j)
@@ -1193,8 +1199,16 @@ ${compacting.context.join("\n\n")}
               break
             }
           } else if (next.info.role === "user") {
-            // Next user message, chain ends
-            break
+            // A compaction trigger user message ends the chain
+            if (next.parts.some((p) => p.type === "compaction")) break
+
+            // A mid-run user interjection: the user typed while the agent was still
+            // running, so subsequent assistant messages are parented to this new user
+            // message instead of the original. Include it in the chain so the walk
+            // continues through the re-parented assistant messages.
+            chainUserIds.add(next.info.id)
+            chain.allMessageIndices.push(j)
+            chain.chainTokens += estimateMessageTokens(next)
           }
         }
 
