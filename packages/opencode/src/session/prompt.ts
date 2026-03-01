@@ -720,7 +720,14 @@ export namespace SessionPrompt {
         names: kpMsgs.map((m: MessageV2.WithParts) => (m.info as MessageV2.User).agent),
       })
 
-      const sessionMessages = clone([...kpMsgs, ...msgs])
+      // Prepend knowledge-pack messages into the working array so they flow
+      // through the plugin transform hook and into toModelMessages.
+      // kpMsgs sit at time_created=1,2,... which is before any compaction
+      // breakpoint, so filterCompacted never returns them — we must inject
+      // them explicitly here.
+      if (kpMsgs.length > 0) {
+        msgs.unshift(...clone(kpMsgs))
+      }
 
       // Ephemerally wrap queued user messages with a reminder to stay on track
       if (step > 1 && lastFinished) {
