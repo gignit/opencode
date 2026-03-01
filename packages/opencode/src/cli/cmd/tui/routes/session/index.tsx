@@ -1741,13 +1741,14 @@ function BlockTool(props: {
 }) {
   const { theme } = useTheme()
   const { dynamicDetails, sync } = use()
+  const tuiConfig = useTuiConfig()
   const renderer = useRenderer()
   const [collapsed, setCollapsed] = createSignal(true)
   const [visualLines, setVisualLines] = createSignal(0)
   const error = createMemo(() => (props.part?.state.status === "error" ? props.part.state.error : undefined))
 
-  const maxLines = createMemo(() => sync.data.config.tui?.dynamic_details_max_lines ?? 15)
-  const showArrows = createMemo(() => sync.data.config.tui?.dynamic_details_show_arrows ?? false)
+  const maxLines = createMemo(() => tuiConfig.dynamic_details_max_lines ?? 15)
+  const showArrows = createMemo(() => tuiConfig.dynamic_details_show_arrows ?? false)
   const dataLines = createMemo(() => getDataLineCount(props.part))
   const shouldCollapse = createMemo(() => {
     if (props.disableDynamic) return false

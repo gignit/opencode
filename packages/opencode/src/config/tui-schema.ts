@@ -22,6 +22,8 @@ export const TuiOptions = z.object({
     .enum(["auto", "stacked"])
     .optional()
     .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
+  dynamic_details_max_lines: z.number().int().min(1).optional().describe("Max lines shown before collapsing tool output (default: 15)"),
+  dynamic_details_show_arrows: z.boolean().optional().describe("Show arrow indicators on collapsed/expanded tool output"),
 })
 
 export const TuiInfo = z
