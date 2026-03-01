@@ -472,10 +472,12 @@ export function Session() {
           })
           return
         }
+        const compactionModel = local.model.compaction.current()
         sdk.client.session.summarize({
           sessionID: route.sessionID,
           modelID: selectedModel.modelID,
           providerID: selectedModel.providerID,
+          compactionModel: compactionModel ?? undefined,
         })
         dialog.clear()
       },
