@@ -65,7 +65,10 @@ async function addProjectKnowledgePack(name: string, version: string) {
  */
 async function removeProjectKnowledgePack(name: string, version: string) {
   const project = await Config.getProject()
-  const packs = (project.knowledge?.packs ?? []).filter((p) => !(p.name === name && p.version === version))
+  const existing = project.knowledge?.packs
+  if (!existing?.length) return
+  const packs = existing.filter((p) => !(p.name === name && p.version === version))
+  if (packs.length === existing.length) return
   await Config.update({ knowledge: { packs } })
 }
 
