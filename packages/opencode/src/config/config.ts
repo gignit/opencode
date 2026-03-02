@@ -1427,11 +1427,11 @@ export namespace Config {
 
   /** Read only the local project config file (not merged with global). */
   export async function getProject() {
-    return loadFile(path.join(Instance.directory, "config.json"))
+    return loadFile(path.join(Instance.worktree, ".opencode", "opencode.json"))
   }
 
   export async function update(config: Info) {
-    const filepath = path.join(Instance.directory, "config.json")
+    const filepath = path.join(Instance.worktree, ".opencode", "opencode.json")
     const existing = await loadFile(filepath)
     await Filesystem.writeJson(filepath, mergeDeep(existing, config))
     await Instance.dispose()
