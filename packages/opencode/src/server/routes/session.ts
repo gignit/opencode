@@ -17,8 +17,57 @@ import { Log } from "../../util/log"
 import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { SessionProxyMiddleware } from "../../control-plane/session-proxy-middleware"
+import { Config } from "../../config/config"
 
 const log = Log.create({ service: "server" })
+
+type KPEntry = { name: string; version: string; enabled: boolean }
+
+/**
+ * When the user ADDS a knowledge pack via the sidebar we must ensure the
+ * local project config reflects the full desired pack list.
+ *
+ * opencode does not merge the `knowledge.packs` array between global and
+ * project configs — once the project config defines that key the global
+ * array is completely ignored.  So before writing any local change we first
+ * mirror every globally-enabled pack into the project file, then apply the
+ * addition on top.  This matches the behaviour of `--kp-add` in the
+ * utils/coder CLI tool.
+ */
+async function addProjectKnowledgePack(name: string, version: string) {
+  const [global, project] = await Promise.all([Config.getGlobal(), Config.getProject()])
+  // Start from whatever the project file already has.
+  const local: KPEntry[] = project.knowledge?.packs ?? []
+  const byKey = new Map(local.map((p) => [`${p.name}@${p.version}`, p]))
+  // Mirror globally-enabled packs that are not yet in the project file.
+  for (const gp of global.knowledge?.packs ?? []) {
+    if (!gp.enabled) continue
+    const key = `${gp.name}@${gp.version}`
+    if (!byKey.has(key)) {
+      byKey.set(key, { name: gp.name, version: gp.version, enabled: true })
+      log.info("knowledge pack: mirroring global pack to project config", { name: gp.name, version: gp.version })
+    }
+  }
+  // Add the requested pack (or re-enable if already present but disabled).
+  const key = `${name}@${version}`
+  byKey.set(key, { name, version, enabled: true })
+  await Config.update({ knowledge: { packs: [...byKey.values()] } })
+}
+
+/**
+ * When the user REMOVES a knowledge pack via the sidebar we only touch the
+ * project config file — we do NOT mirror global packs, because the user only
+ * asked to remove one specific pack.  The entry is deleted entirely (not
+ * marked disabled) so it cleanly disappears from future sessions.
+ *
+ * This matches the behaviour of `--kp-remove` in the utils/coder CLI tool.
+ */
+async function removeProjectKnowledgePack(name: string, version: string) {
+  const project = await Config.getProject()
+  const packs = (project.knowledge?.packs ?? []).filter((p) => !(p.name === name && p.version === version))
+  await Config.update({ knowledge: { packs } })
+}
 
 export const SessionRoutes = lazy(() =>
   new Hono()
@@ -749,6 +798,10 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const { sessionID, name, version } = c.req.valid("param")
         await KnowledgePack.add({ sessionID, name, version })
+        // Persist the addition to the local project config so future sessions
+        // also start with this pack enabled.  Global packs are mirrored into
+        // the project file first so they are not silently dropped.
+        await addProjectKnowledgePack(name, version)
         return c.json(true)
       },
     )
@@ -777,6 +830,9 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const { sessionID, name, version } = c.req.valid("param")
         await KnowledgePack.remove({ sessionID, name, version })
+        // Persist the removal to the local project config (entry deleted
+        // entirely, no global mirroring — matches --kp-remove behaviour).
+        await removeProjectKnowledgePack(name, version)
         return c.json(true)
       },
     )

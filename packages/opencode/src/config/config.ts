@@ -1425,6 +1425,11 @@ export namespace Config {
     return global()
   }
 
+  /** Read only the local project config file (not merged with global). */
+  export async function getProject() {
+    return loadFile(path.join(Instance.directory, "config.json"))
+  }
+
   export async function update(config: Info) {
     const filepath = path.join(Instance.directory, "config.json")
     const existing = await loadFile(filepath)
