@@ -329,6 +329,7 @@ export namespace SessionPrompt {
       let lastUser: MessageV2.User | undefined
       let lastAssistant: MessageV2.Assistant | undefined
       let lastFinished: MessageV2.Assistant | undefined
+      let lastWithTokens: MessageV2.Assistant | undefined
       let tasks: (MessageV2.CompactionPart | MessageV2.SubtaskPart)[] = []
       for (let i = msgs.length - 1; i >= 0; i--) {
         const msg = msgs[i]
@@ -336,7 +337,12 @@ export namespace SessionPrompt {
         if (!lastAssistant && msg.info.role === "assistant") lastAssistant = msg.info as MessageV2.Assistant
         if (!lastFinished && msg.info.role === "assistant" && msg.info.finish)
           lastFinished = msg.info as MessageV2.Assistant
-        if (lastUser && lastFinished) break
+        if (!lastWithTokens && msg.info.role === "assistant") {
+          const a = msg.info as MessageV2.Assistant
+          const total = a.tokens.input + a.tokens.cache.read + a.tokens.cache.write + a.tokens.output
+          if (total > 0) lastWithTokens = a
+        }
+        if (lastUser && lastFinished && lastWithTokens) break
         const task = msg.parts.filter((part) => part.type === "compaction" || part.type === "subtask")
         if (task && !lastFinished) {
           tasks.push(...task)
@@ -351,7 +357,7 @@ export namespace SessionPrompt {
       ) {
         // Run float pre-check before exiting so sub-collapse fires on complete chains (stop finish)
         // even when we are not about to make another LLM call.
-        if (lastFinished && lastFinished.summary !== true) {
+        if (lastWithTokens && lastWithTokens.summary !== true) {
           const { CompactionExtension } = await import("./compaction-extension")
           const method = await CompactionExtension.getMethod()
           if (method === "float") {
@@ -363,7 +369,7 @@ export namespace SessionPrompt {
                 sessionID,
                 messages: msgs,
                 abort,
-                tokens: lastFinished.tokens,
+                tokens: lastWithTokens.tokens,
                 contextLimit: stopModel.limit.context,
               })
             }
@@ -595,16 +601,16 @@ export namespace SessionPrompt {
       log.info("COLLAPSE prompt float check", {
         sessionID,
         method,
-        hasLastFinished: !!lastFinished,
-        lastFinishedSummary: lastFinished?.summary,
-        willRunPreCheck: method === "float" && lastFinished && lastFinished.summary !== true,
+        hasLastWithTokens: !!lastWithTokens,
+        lastWithTokensSummary: lastWithTokens?.summary,
+        willRunPreCheck: method === "float" && lastWithTokens && lastWithTokens.summary !== true,
       })
-      if (method === "float" && lastFinished && lastFinished.summary !== true) {
+      if (method === "float" && lastWithTokens && lastWithTokens.summary !== true) {
         const floatResult = await CompactionExtension.floatModePreCheck({
           sessionID,
           messages: msgs,
           abort,
-          tokens: lastFinished.tokens,
+          tokens: lastWithTokens.tokens,
           contextLimit: model.limit.context,
         })
         if (floatResult.subCollapsed) {
@@ -618,9 +624,9 @@ export namespace SessionPrompt {
       // context overflow, needs compaction
       const config = await Config.get()
       if (
-        lastFinished &&
-        lastFinished.summary !== true &&
-        (await SessionCompaction.isOverflow({ tokens: lastFinished.tokens, model }))
+        lastWithTokens &&
+        lastWithTokens.summary !== true &&
+        (await SessionCompaction.isOverflow({ tokens: lastWithTokens.tokens, model }))
       ) {
         const insertTriggers = config.compaction?.insertTriggers ?? method === "standard"
 
