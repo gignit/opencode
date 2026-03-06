@@ -349,6 +349,26 @@ export namespace SessionPrompt {
         !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
         lastUser.id < lastAssistant.id
       ) {
+        // Run float pre-check before exiting so sub-collapse fires on complete chains (stop finish)
+        // even when we are not about to make another LLM call.
+        if (lastFinished && lastFinished.summary !== true) {
+          const { CompactionExtension } = await import("./compaction-extension")
+          const method = await CompactionExtension.getMethod()
+          if (method === "float") {
+            const stopModel = await Provider.getModel(lastUser.model.providerID, lastUser.model.modelID).catch(
+              () => null,
+            )
+            if (stopModel) {
+              await CompactionExtension.floatModePreCheck({
+                sessionID,
+                messages: msgs,
+                abort,
+                tokens: lastFinished.tokens,
+                contextLimit: stopModel.limit.context,
+              })
+            }
+          }
+        }
         log.info("exiting loop", { sessionID })
         break
       }
