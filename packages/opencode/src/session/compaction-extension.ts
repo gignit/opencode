@@ -1142,6 +1142,11 @@ ${compacting.context.join("\n\n")}
           continue
         }
 
+        log.info("COLLAPSE detectChains chain start", {
+          userIdx: i,
+          userId: msg.info.id,
+        })
+
         const chain: ChainInfo = {
           userMessageIndex: i,
           assistantMessageIndices: [],
@@ -1208,7 +1213,15 @@ ${compacting.context.join("\n\n")}
             // this is a new independent turn — end the chain.
             const prev = messages[j - 1]
             const prevInfo = prev?.info.role === "assistant" ? (prev.info as MessageV2.Assistant) : null
-            if (!prevInfo || prevInfo.finish !== "tool-calls") break
+            const isInterjection = !!prevInfo && prevInfo.finish === "tool-calls"
+            log.info("COLLAPSE detectChains user boundary", {
+              userIdx: j,
+              userId: next.info.id,
+              prevRole: prev?.info.role,
+              prevFinish: prevInfo?.finish,
+              isInterjection,
+            })
+            if (!isInterjection) break
 
             chainUserIds.add(next.info.id)
             chain.allMessageIndices.push(j)
@@ -1218,6 +1231,12 @@ ${compacting.context.join("\n\n")}
 
         // Only count as a chain if there are 2+ assistant responses
         // Single user + single assistant is just a simple Q&A, not a chain worth collapsing
+        log.info("COLLAPSE detectChains chain end", {
+          userIdx: i,
+          userId: chain.userMessageId,
+          assistants: chain.assistantMessageIndices.length,
+          valid: chain.assistantMessageIndices.length >= 2,
+        })
         if (chain.assistantMessageIndices.length >= 2) {
           chains.push(chain)
         }
