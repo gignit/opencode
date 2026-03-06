@@ -1202,10 +1202,14 @@ ${compacting.context.join("\n\n")}
             // A compaction trigger user message ends the chain
             if (next.parts.some((p) => p.type === "compaction")) break
 
-            // A mid-run user interjection: the user typed while the agent was still
-            // running, so subsequent assistant messages are parented to this new user
-            // message instead of the original. Include it in the chain so the walk
-            // continues through the re-parented assistant messages.
+            // Only treat as a mid-run user interjection if the immediately preceding
+            // message is an assistant still in a tool-calls sequence. If the prior
+            // message is a stop/end-turn assistant, a summary, or another user message,
+            // this is a new independent turn — end the chain.
+            const prev = messages[j - 1]
+            const prevInfo = prev?.info.role === "assistant" ? (prev.info as MessageV2.Assistant) : null
+            if (!prevInfo || prevInfo.finish !== "tool-calls") break
+
             chainUserIds.add(next.info.id)
             chain.allMessageIndices.push(j)
             chain.chainTokens += estimateMessageTokens(next)
