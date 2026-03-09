@@ -138,6 +138,7 @@ export type UserMessage = {
     [key: string]: boolean
   }
   variant?: string
+  flux?: string
 }
 
 export type ProviderAuthError = {
@@ -241,6 +242,7 @@ export type AssistantMessage = {
   structured?: unknown
   variant?: string
   finish?: string
+  flux?: string
 }
 
 export type Message = UserMessage | AssistantMessage
@@ -506,6 +508,10 @@ export type CompactionPart = {
   type: "compaction"
   auto: boolean
   overflow?: boolean
+  compactionModel?: {
+    providerID: string
+    modelID: string
+  }
 }
 
 export type Part =
@@ -889,21 +895,6 @@ export type EventVcsBranchUpdated = {
   }
 }
 
-export type EventWorktreeReady = {
-  type: "worktree.ready"
-  properties: {
-    name: string
-    branch: string
-  }
-}
-
-export type EventWorktreeFailed = {
-  type: "worktree.failed"
-  properties: {
-    message: string
-  }
-}
-
 export type EventWorkspaceReady = {
   type: "workspace.ready"
   properties: {
@@ -957,6 +948,21 @@ export type EventPtyDeleted = {
   }
 }
 
+export type EventWorktreeReady = {
+  type: "worktree.ready"
+  properties: {
+    name: string
+    branch: string
+  }
+}
+
+export type EventWorktreeFailed = {
+  type: "worktree.failed"
+  properties: {
+    message: string
+  }
+}
+
 export type Event =
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
@@ -995,14 +1001,14 @@ export type Event =
   | EventSessionDiff
   | EventSessionError
   | EventVcsBranchUpdated
-  | EventWorktreeReady
-  | EventWorktreeFailed
   | EventWorkspaceReady
   | EventWorkspaceFailed
   | EventPtyCreated
   | EventPtyUpdated
   | EventPtyExited
   | EventPtyDeleted
+  | EventWorktreeReady
+  | EventWorktreeFailed
 
 export type GlobalEvent = {
   directory: string
@@ -1470,9 +1476,96 @@ export type Config = {
      */
     prune?: boolean
     /**
+     * Compaction method: 'standard' summarizes entire conversation, 'collapse' extracts oldest messages and creates summary at breakpoint, 'float' automatically sub-collapses oldest chains before evaluating context overflow (default: standard)
+     */
+    method?: "standard" | "collapse" | "float"
+    /**
+     * Trigger compaction at this fraction of total context (default: 0.85 = 85%)
+     */
+    trigger?: number
+    /**
+     * For collapse mode: fraction of oldest tokens to extract and summarize (default: 0.65)
+     */
+    extractRatio?: number
+    /**
+     * For collapse mode: fraction of newest tokens to use as reference context (default: 0.15)
+     */
+    recentRatio?: number
+    /**
+     * For collapse mode: target token count for the summary output (default: 10000)
+     */
+    summaryMaxTokens?: number
+    /**
+     * For collapse mode: number of previous summaries to include for context merging (default: 3)
+     */
+    previousSummaries?: number
+    /**
+     * Whether to insert compaction trigger messages in the stream. Standard compaction needs triggers (default: true), collapse compaction does not (default: false)
+     */
+    insertTriggers?: boolean
+    /**
+     * For collapse mode: allow inserting breakpoints in the middle of chains (default: true). When false, breakpoints only occur at chain boundaries to preserve conversation flow.
+     */
+    splitChain?: boolean
+    /**
+     * For collapse mode with splitChain=true: minimum fraction of extractTarget that must be covered when rewinding to chain boundary before falling back to mid-chain split (default: 0.75). E.g. 0.75 means the rewind must still extract at least 75% of the token target to be accepted.
+     */
+    splitChainMinThreshold?: number
+    /**
+     * Float mode settings for automatic chain sub-collapse
+     */
+    float?: {
+      /**
+       * Number of chains before triggering sub-collapse on oldest chain (default: 3)
+       */
+      chainThreshold?: number
+      /**
+       * Minimum fraction of context window that must be used before sub-collapse chains are evaluated (default: 0.6 = 60%). Sub-collapse is skipped entirely when context usage is below this threshold, and stops between chains if usage drops below it.
+       */
+      minFloat?: number
+      /**
+       * Sub-collapse algorithm: 'full' includes all context, 'bookend' focuses on user request + final response + tools, 'minimal' uses only final response (default: bookend)
+       */
+      algorithm?: "full" | "bookend" | "minimal"
+      /**
+       * Target token count for sub-collapse summaries (default: 5000)
+       */
+      subCollapseSummaryMaxTokens?: number
+    }
+    /**
      * Token buffer for compaction. Leaves enough window to avoid overflow during compaction.
      */
     reserved?: number
+  }
+  /**
+   * Knowledge pack settings
+   */
+  knowledge?: {
+    /**
+     * Enable knowledge pack injection (default: true)
+     */
+    enabled?: boolean
+    /**
+     * Additional directories to scan for .yaml knowledge pack files
+     */
+    paths?: Array<string>
+    /**
+     * Knowledge packs to enable or disable by default
+     */
+    packs?: Array<{
+      /**
+       * Knowledge pack name
+       */
+      name: string
+      /**
+       * Knowledge pack version
+       */
+      version: string
+      /**
+       * Whether to enable this knowledge pack by default
+       */
+      enabled: boolean
+    }>
   }
   experimental?: {
     disable_paste_summary?: boolean
@@ -1631,6 +1724,16 @@ export type ToolListItem = {
 
 export type ToolList = Array<ToolListItem>
 
+export type Workspace = {
+  id: string
+  type: string
+  branch: string | null
+  name: string | null
+  directory: string | null
+  extra: unknown | null
+  projectID: string
+}
+
 export type Worktree = {
   name: string
   branch: string
@@ -1643,16 +1746,6 @@ export type WorktreeCreateInput = {
    * Additional startup script to run after the project's start command
    */
   startCommand?: string
-}
-
-export type Workspace = {
-  id: string
-  branch: string | null
-  projectID: string
-  config: {
-    directory: string
-    type: "worktree"
-  }
 }
 
 export type WorktreeRemoveInput = {
@@ -2087,6 +2180,25 @@ export type ProjectCurrentResponses = {
 
 export type ProjectCurrentResponse = ProjectCurrentResponses[keyof ProjectCurrentResponses]
 
+export type ProjectInitGitData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/project/git/init"
+}
+
+export type ProjectInitGitResponses = {
+  /**
+   * Project information after git initialization
+   */
+  200: Project
+}
+
+export type ProjectInitGitResponse = ProjectInitGitResponses[keyof ProjectInitGitResponses]
+
 export type ProjectUpdateData = {
   body?: {
     name?: string
@@ -2444,6 +2556,93 @@ export type ToolListResponses = {
 
 export type ToolListResponse = ToolListResponses[keyof ToolListResponses]
 
+export type ExperimentalWorkspaceListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/workspace"
+}
+
+export type ExperimentalWorkspaceListResponses = {
+  /**
+   * Workspaces
+   */
+  200: Array<Workspace>
+}
+
+export type ExperimentalWorkspaceListResponse =
+  ExperimentalWorkspaceListResponses[keyof ExperimentalWorkspaceListResponses]
+
+export type ExperimentalWorkspaceCreateData = {
+  body?: {
+    id?: string
+    type: string
+    branch: string | null
+    extra: unknown | null
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/workspace"
+}
+
+export type ExperimentalWorkspaceCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ExperimentalWorkspaceCreateError =
+  ExperimentalWorkspaceCreateErrors[keyof ExperimentalWorkspaceCreateErrors]
+
+export type ExperimentalWorkspaceCreateResponses = {
+  /**
+   * Workspace created
+   */
+  200: Workspace
+}
+
+export type ExperimentalWorkspaceCreateResponse =
+  ExperimentalWorkspaceCreateResponses[keyof ExperimentalWorkspaceCreateResponses]
+
+export type ExperimentalWorkspaceRemoveData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/workspace/{id}"
+}
+
+export type ExperimentalWorkspaceRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ExperimentalWorkspaceRemoveError =
+  ExperimentalWorkspaceRemoveErrors[keyof ExperimentalWorkspaceRemoveErrors]
+
+export type ExperimentalWorkspaceRemoveResponses = {
+  /**
+   * Workspace removed
+   */
+  200: Workspace
+}
+
+export type ExperimentalWorkspaceRemoveResponse =
+  ExperimentalWorkspaceRemoveResponses[keyof ExperimentalWorkspaceRemoveResponses]
+
 export type WorktreeRemoveData = {
   body?: WorktreeRemoveInput
   path?: never
@@ -2518,96 +2717,6 @@ export type WorktreeCreateResponses = {
 }
 
 export type WorktreeCreateResponse = WorktreeCreateResponses[keyof WorktreeCreateResponses]
-
-export type ExperimentalWorkspaceRemoveData = {
-  body?: never
-  path: {
-    id: string
-  }
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/experimental/workspace/{id}"
-}
-
-export type ExperimentalWorkspaceRemoveErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-}
-
-export type ExperimentalWorkspaceRemoveError =
-  ExperimentalWorkspaceRemoveErrors[keyof ExperimentalWorkspaceRemoveErrors]
-
-export type ExperimentalWorkspaceRemoveResponses = {
-  /**
-   * Workspace removed
-   */
-  200: Workspace
-}
-
-export type ExperimentalWorkspaceRemoveResponse =
-  ExperimentalWorkspaceRemoveResponses[keyof ExperimentalWorkspaceRemoveResponses]
-
-export type ExperimentalWorkspaceCreateData = {
-  body?: {
-    branch: string | null
-    config: {
-      directory: string
-      type: "worktree"
-    }
-  }
-  path: {
-    id: string
-  }
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/experimental/workspace/{id}"
-}
-
-export type ExperimentalWorkspaceCreateErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-}
-
-export type ExperimentalWorkspaceCreateError =
-  ExperimentalWorkspaceCreateErrors[keyof ExperimentalWorkspaceCreateErrors]
-
-export type ExperimentalWorkspaceCreateResponses = {
-  /**
-   * Workspace created
-   */
-  200: Workspace
-}
-
-export type ExperimentalWorkspaceCreateResponse =
-  ExperimentalWorkspaceCreateResponses[keyof ExperimentalWorkspaceCreateResponses]
-
-export type ExperimentalWorkspaceListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/experimental/workspace"
-}
-
-export type ExperimentalWorkspaceListResponses = {
-  /**
-   * Workspaces
-   */
-  200: Array<Workspace>
-}
-
-export type ExperimentalWorkspaceListResponse =
-  ExperimentalWorkspaceListResponses[keyof ExperimentalWorkspaceListResponses]
 
 export type WorktreeResetData = {
   body?: WorktreeResetInput
@@ -3176,6 +3285,10 @@ export type SessionSummarizeData = {
     providerID: string
     modelID: string
     auto?: boolean
+    compactionModel?: {
+      providerID: string
+      modelID: string
+    }
   }
   path: {
     /**
@@ -3395,6 +3508,175 @@ export type SessionMessageResponses = {
 }
 
 export type SessionMessageResponse = SessionMessageResponses[keyof SessionMessageResponses]
+
+export type SessionKnowledgePacksData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/knowledge-packs"
+}
+
+export type SessionKnowledgePacksErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type SessionKnowledgePacksError = SessionKnowledgePacksErrors[keyof SessionKnowledgePacksErrors]
+
+export type SessionKnowledgePacksResponses = {
+  /**
+   * Knowledge packs
+   */
+  200: Array<{
+    id: string
+    name: string
+    displayName: string
+    version: string
+  }>
+}
+
+export type SessionKnowledgePacksResponse = SessionKnowledgePacksResponses[keyof SessionKnowledgePacksResponses]
+
+export type SessionKnowledgePacksAvailableData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/knowledge-packs/available"
+}
+
+export type SessionKnowledgePacksAvailableErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type SessionKnowledgePacksAvailableError =
+  SessionKnowledgePacksAvailableErrors[keyof SessionKnowledgePacksAvailableErrors]
+
+export type SessionKnowledgePacksAvailableResponses = {
+  /**
+   * Available knowledge packs
+   */
+  200: Array<{
+    name: string
+    displayName: string
+    version: string
+    enabled: boolean
+  }>
+}
+
+export type SessionKnowledgePacksAvailableResponse =
+  SessionKnowledgePacksAvailableResponses[keyof SessionKnowledgePacksAvailableResponses]
+
+export type SessionKnowledgePackRemoveData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+    /**
+     * Knowledge pack name
+     */
+    name: string
+    /**
+     * Knowledge pack version
+     */
+    version: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/knowledge-packs/{name}/{version}"
+}
+
+export type SessionKnowledgePackRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionKnowledgePackRemoveError = SessionKnowledgePackRemoveErrors[keyof SessionKnowledgePackRemoveErrors]
+
+export type SessionKnowledgePackRemoveResponses = {
+  /**
+   * Knowledge pack removed
+   */
+  200: boolean
+}
+
+export type SessionKnowledgePackRemoveResponse =
+  SessionKnowledgePackRemoveResponses[keyof SessionKnowledgePackRemoveResponses]
+
+export type SessionKnowledgePackAddData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+    /**
+     * Knowledge pack name
+     */
+    name: string
+    /**
+     * Knowledge pack version
+     */
+    version: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/knowledge-packs/{name}/{version}"
+}
+
+export type SessionKnowledgePackAddErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionKnowledgePackAddError = SessionKnowledgePackAddErrors[keyof SessionKnowledgePackAddErrors]
+
+export type SessionKnowledgePackAddResponses = {
+  /**
+   * Knowledge pack added
+   */
+  200: boolean
+}
+
+export type SessionKnowledgePackAddResponse = SessionKnowledgePackAddResponses[keyof SessionKnowledgePackAddResponses]
 
 export type PartDeleteData = {
   body?: never

@@ -111,7 +111,6 @@ export function tui(input: {
   fetch?: typeof fetch
   headers?: RequestInit["headers"]
   events?: EventSource
-  onExit?: () => Promise<void>
 }) {
   // promise to prevent immediate exit
   return new Promise<void>(async (resolve) => {
@@ -126,7 +125,6 @@ export function tui(input: {
 
     const onExit = async () => {
       unguard?.()
-      await input.onExit?.()
       resolve()
     }
 
@@ -447,6 +445,20 @@ function App() {
         local.model.cycleFavorite(-1)
       },
     },
+    {
+      title: "Switch compaction model",
+      value: "compaction_model.list",
+      keybind: "compaction_model_list",
+      category: "Agent",
+      slash: {
+        name: "compaction-models",
+        aliases: ["compaction-model"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogModel target="compaction" />)
+      },
+    },
+
     {
       title: "Switch agent",
       value: "agent.list",

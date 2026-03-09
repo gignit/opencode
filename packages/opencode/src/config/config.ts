@@ -86,11 +86,12 @@ export namespace Config {
     let result: Info = {}
     for (const [key, value] of Object.entries(auth)) {
       if (value.type === "wellknown") {
+        const url = key.replace(/\/+$/, "")
         process.env[value.key] = value.token
-        log.debug("fetching remote config", { url: `${key}/.well-known/opencode` })
-        const response = await fetch(`${key}/.well-known/opencode`)
+        log.debug("fetching remote config", { url: `${url}/.well-known/opencode` })
+        const response = await fetch(`${url}/.well-known/opencode`)
         if (!response.ok) {
-          throw new Error(`failed to fetch remote config from ${key}: ${response.status}`)
+          throw new Error(`failed to fetch remote config from ${url}: ${response.status}`)
         }
         const wellknown = (await response.json()) as any
         const remoteConfig = wellknown.config ?? {}
@@ -99,11 +100,11 @@ export namespace Config {
         result = mergeConfigConcatArrays(
           result,
           await load(JSON.stringify(remoteConfig), {
-            dir: path.dirname(`${key}/.well-known/opencode`),
-            source: `${key}/.well-known/opencode`,
+            dir: path.dirname(`${url}/.well-known/opencode`),
+            source: `${url}/.well-known/opencode`,
           }),
         )
-        log.debug("loaded remote config from well-known", { url: key })
+        log.debug("loaded remote config from well-known", { url })
       }
     }
 
@@ -808,6 +809,7 @@ export namespace Config {
       model_cycle_recent_reverse: z.string().optional().default("shift+f2").describe("Previous recently used model"),
       model_cycle_favorite: z.string().optional().default("none").describe("Next favorite model"),
       model_cycle_favorite_reverse: z.string().optional().default("none").describe("Previous favorite model"),
+      compaction_model_list: z.string().optional().default("none").describe("List available compaction models"),
       command_list: z.string().optional().default("ctrl+p").describe("List available commands"),
       agent_list: z.string().optional().default("<leader>a").describe("List agents"),
       agent_cycle: z.string().optional().default("tab").describe("Next agent"),
@@ -1138,6 +1140,93 @@ export namespace Config {
         .object({
           auto: z.boolean().optional().describe("Enable automatic compaction when context is full (default: true)"),
           prune: z.boolean().optional().describe("Enable pruning of old tool outputs (default: true)"),
+          method: z
+            .enum(["standard", "collapse", "float"])
+            .optional()
+            .describe(
+              "Compaction method: 'standard' summarizes entire conversation, 'collapse' extracts oldest messages and creates summary at breakpoint, 'float' automatically sub-collapses oldest chains before evaluating context overflow (default: standard)",
+            ),
+          trigger: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("Trigger compaction at this fraction of total context (default: 0.85 = 85%)"),
+          extractRatio: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("For collapse mode: fraction of oldest tokens to extract and summarize (default: 0.65)"),
+          recentRatio: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("For collapse mode: fraction of newest tokens to use as reference context (default: 0.15)"),
+          summaryMaxTokens: z
+            .number()
+            .min(1000)
+            .max(50000)
+            .optional()
+            .describe("For collapse mode: target token count for the summary output (default: 10000)"),
+          previousSummaries: z
+            .number()
+            .min(0)
+            .max(10)
+            .optional()
+            .describe("For collapse mode: number of previous summaries to include for context merging (default: 3)"),
+          insertTriggers: z
+            .boolean()
+            .optional()
+            .describe(
+              "Whether to insert compaction trigger messages in the stream. Standard compaction needs triggers (default: true), collapse compaction does not (default: false)",
+            ),
+          splitChain: z
+            .boolean()
+            .optional()
+            .describe(
+              "For collapse mode: allow inserting breakpoints in the middle of chains (default: true). When false, breakpoints only occur at chain boundaries to preserve conversation flow.",
+            ),
+          splitChainMinThreshold: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe(
+              "For collapse mode with splitChain=true: minimum fraction of extractTarget that must be covered when rewinding to chain boundary before falling back to mid-chain split (default: 0.75). E.g. 0.75 means the rewind must still extract at least 75% of the token target to be accepted.",
+            ),
+          float: z
+            .object({
+              chainThreshold: z
+                .number()
+                .min(1)
+                .max(20)
+                .optional()
+                .describe("Number of chains before triggering sub-collapse on oldest chain (default: 3)"),
+              minFloat: z
+                .number()
+                .min(0)
+                .max(1)
+                .optional()
+                .describe(
+                  "Minimum fraction of context window that must be used before sub-collapse chains are evaluated (default: 0.6 = 60%). Sub-collapse is skipped entirely when context usage is below this threshold, and stops between chains if usage drops below it.",
+                ),
+              algorithm: z
+                .enum(["full", "bookend", "minimal"])
+                .optional()
+                .describe(
+                  "Sub-collapse algorithm: 'full' includes all context, 'bookend' focuses on user request + final response + tools, 'minimal' uses only final response (default: bookend)",
+                ),
+              subCollapseSummaryMaxTokens: z
+                .number()
+                .min(500)
+                .max(20000)
+                .optional()
+                .describe("Target token count for sub-collapse summaries (default: 5000)"),
+            })
+            .optional()
+            .describe("Float mode settings for automatic chain sub-collapse"),
           reserved: z
             .number()
             .int()
@@ -1146,6 +1235,26 @@ export namespace Config {
             .describe("Token buffer for compaction. Leaves enough window to avoid overflow during compaction."),
         })
         .optional(),
+      knowledge: z
+        .object({
+          enabled: z.boolean().optional().describe("Enable knowledge pack injection (default: true)"),
+          paths: z
+            .array(z.string())
+            .optional()
+            .describe("Additional directories to scan for .yaml knowledge pack files"),
+          packs: z
+            .array(
+              z.object({
+                name: z.string().describe("Knowledge pack name"),
+                version: z.string().describe("Knowledge pack version"),
+                enabled: z.boolean().describe("Whether to enable this knowledge pack by default"),
+              }),
+            )
+            .optional()
+            .describe("Knowledge packs to enable or disable by default"),
+        })
+        .optional()
+        .describe("Knowledge pack settings"),
       experimental: z
         .object({
           disable_paste_summary: z.boolean().optional(),
@@ -1239,7 +1348,7 @@ export namespace Config {
       if (!parsed.data.$schema && isFile) {
         parsed.data.$schema = "https://opencode.ai/config.json"
         const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://opencode.ai/config.json",')
-        await Bun.write(options.path, updated).catch(() => {})
+        await Filesystem.write(options.path, updated).catch(() => {})
       }
       const data = parsed.data
       if (data.plugin && isFile) {
@@ -1286,8 +1395,13 @@ export namespace Config {
     return global()
   }
 
+  /** Read only the local project config file (not merged with global). */
+  export async function getProject() {
+    return loadFile(path.join(Instance.worktree, ".opencode", "opencode.json"))
+  }
+
   export async function update(config: Info) {
-    const filepath = path.join(Instance.directory, "config.json")
+    const filepath = path.join(Instance.worktree, ".opencode", "opencode.json")
     const existing = await loadFile(filepath)
     await Filesystem.writeJson(filepath, mergeDeep(existing, config))
     await Instance.dispose()
@@ -1400,3 +1514,5 @@ export namespace Config {
     return state().then((x) => x.directories)
   }
 }
+Filesystem.write
+Filesystem.write
