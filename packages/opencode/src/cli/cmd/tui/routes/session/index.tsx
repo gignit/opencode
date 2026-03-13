@@ -1069,6 +1069,9 @@ export function Session() {
               flexGrow={1}
               scrollAcceleration={scrollAcceleration()}
             >
+              <Show when={sync.session.hasMore(route.sessionID)}>
+                <LoadMore sessionID={route.sessionID} />
+              </Show>
               <For each={messages()}>
                 {(message, index) => (
                   <Switch>
@@ -2223,6 +2226,47 @@ function Skill(props: ToolProps<typeof SkillTool>) {
     <InlineTool icon="→" pending="Loading skill..." complete={props.input.name} part={props.part}>
       Skill "{props.input.name}"
     </InlineTool>
+  )
+}
+
+function LoadMore(props: { sessionID: string }) {
+  const { theme } = useTheme()
+  const sync = useSync()
+  const toast = useToast()
+  const [hover, setHover] = createSignal(false)
+  const [loading, setLoading] = createSignal(false)
+
+  const handle = async () => {
+    if (loading()) return
+    setLoading(true)
+    try {
+      const count = await sync.session.loadMore(props.sessionID)
+      if (count === 0) {
+        toast.show({ message: "No older messages", variant: "info" })
+      } else {
+        toast.show({ message: `Loaded ${count} older messages`, variant: "success" })
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <box
+      paddingLeft={2}
+      paddingRight={2}
+      paddingTop={1}
+      paddingBottom={1}
+      marginBottom={1}
+      backgroundColor={theme.backgroundPanel}
+      onMouseOver={() => setHover(true)}
+      onMouseOut={() => setHover(false)}
+      onMouseUp={handle}
+    >
+      <Show when={loading()} fallback={<text fg={hover() ? theme.accent : theme.textMuted}>Load older messages</text>}>
+        <Spinner color={theme.textMuted}>Loading...</Spinner>
+      </Show>
+    </box>
   )
 }
 

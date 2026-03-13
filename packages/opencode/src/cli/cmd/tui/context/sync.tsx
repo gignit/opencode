@@ -33,6 +33,7 @@ import type { Workspace } from "@opencode-ai/sdk/v2"
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
   init: () => {
+    const cursors = new Map<string, string>()
     const [store, setStore] = createStore<{
       status: "loading" | "partial" | "complete"
       provider: Provider[]
@@ -475,6 +476,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.session.todo({ sessionID }),
             sdk.client.session.diff({ sessionID }),
           ])
+          const cursor = messages.response?.headers?.get("X-Next-Cursor")
+          if (cursor) cursors.set(sessionID, cursor)
+          else cursors.delete(sessionID)
           setStore(
             produce((draft) => {
               const match = Binary.search(draft.session, sessionID, (s) => s.id)
@@ -489,6 +493,35 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             }),
           )
           fullSyncedSessions.add(sessionID)
+        },
+        hasMore(sessionID: string) {
+          return cursors.has(sessionID)
+        },
+        async loadMore(sessionID: string) {
+          const cursor = cursors.get(sessionID)
+          if (!cursor) return 0
+          const result = await sdk.client.session.messages({
+            sessionID,
+            limit: 100,
+            before: cursor,
+          })
+          if (!result.data || result.data.length === 0) {
+            cursors.delete(sessionID)
+            return 0
+          }
+          const next = result.response?.headers?.get("X-Next-Cursor")
+          if (next) cursors.set(sessionID, next)
+          else cursors.delete(sessionID)
+          setStore(
+            produce((draft) => {
+              const existing = draft.message[sessionID] ?? []
+              draft.message[sessionID] = [...result.data!.map((x) => x.info), ...existing]
+              for (const message of result.data!) {
+                draft.part[message.info.id] = message.parts
+              }
+            }),
+          )
+          return result.data.length
         },
       },
       workspace: {
