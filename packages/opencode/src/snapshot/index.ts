@@ -131,8 +131,30 @@ export namespace Snapshot {
   }
 
   export async function restore(snapshot: string) {
-    log.info("restore", { commit: snapshot })
+    log.info("restore", { commit: snapshot, cwd: Instance.directory })
     const git = gitdir()
+    const prefix = path.relative(Instance.worktree, Instance.directory)
+    const spec = prefix ? `${prefix}/` : ""
+
+    const listed = await Process.text(
+      ["git", ...args(git, ["ls-tree", "-r", "--name-only", snapshot, "--", spec])],
+      { nothrow: true },
+    )
+    if (listed.code !== 0) {
+      log.error("failed to list snapshot files", {
+        snapshot,
+        exitCode: listed.code,
+        stderr: listed.stderr.toString(),
+      })
+      return
+    }
+
+    const files = listed.text.trim().split("\n").filter(Boolean)
+    if (files.length === 0) {
+      log.info("no files to restore", { snapshot, prefix })
+      return
+    }
+
     const result = await Process.run(
       ["git", "-c", "core.longpaths=true", "-c", "core.symlinks=true", ...args(git, ["read-tree", snapshot])],
       {
@@ -140,30 +162,24 @@ export namespace Snapshot {
         nothrow: true,
       },
     )
-    if (result.code === 0) {
-      const checkout = await Process.run(
-        ["git", "-c", "core.longpaths=true", "-c", "core.symlinks=true", ...args(git, ["checkout-index", "-a", "-f"])],
+    if (result.code !== 0) {
+      log.error("failed to read-tree snapshot", {
+        snapshot,
+        exitCode: result.code,
+        stderr: result.stderr.toString(),
+      })
+      return
+    }
+
+    for (const file of files) {
+      await Process.run(
+        ["git", ...args(git, ["checkout-index", "-f", "--", file])],
         {
           cwd: Instance.worktree,
           nothrow: true,
         },
       )
-      if (checkout.code === 0) return
-      log.error("failed to restore snapshot", {
-        snapshot,
-        exitCode: checkout.code,
-        stderr: checkout.stderr.toString(),
-        stdout: checkout.stdout.toString(),
-      })
-      return
     }
-
-    log.error("failed to restore snapshot", {
-      snapshot,
-      exitCode: result.code,
-      stderr: result.stderr.toString(),
-      stdout: result.stdout.toString(),
-    })
   }
 
   export async function revert(patches: Patch[]) {
@@ -234,7 +250,7 @@ export namespace Snapshot {
         ...args(git, ["diff", "--no-ext-diff", hash, "--", "."]),
       ],
       {
-        cwd: Instance.worktree,
+        cwd: Instance.directory,
         nothrow: true,
       },
     )
