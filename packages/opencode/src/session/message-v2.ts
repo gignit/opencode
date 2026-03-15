@@ -871,7 +871,10 @@ export namespace MessageV2 {
       result.push(msg)
 
       // Debug: log potential breakpoint candidates
-      if (isAssistantSummary) {
+      // Upstream guard: do not mark errored summaries as completed breakpoints.
+      // Collapse compaction may not set finish, but summary: true is sufficient;
+      // however an errored summary must not be treated as a valid breakpoint.
+      if (isAssistantSummary && !(msg.info as Assistant).error) {
         const parentID = (msg.info as Assistant).parentID
         log.debug("COLLAPSE filterCompacted found summary", {
           msgId: msg.info.id,

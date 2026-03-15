@@ -123,6 +123,31 @@ export namespace SessionCompaction {
     if (method === "collapse" || method === "float") {
       const result = await CompactionExtension.process(input)
       Bus.publish(Event.Compacted, { sessionID: input.sessionID })
+      // For overflow-triggered compaction in collapse/float mode, inject the
+      // overflow explanation message so the user knows their media was too large.
+      if (result === "continue" && input.auto && input.overflow) {
+        const userMessage = input.messages.findLast((m) => m.info.id === input.parentID)!.info as MessageV2.User
+        const continueMsg = await Session.updateMessage({
+          id: Identifier.ascending("message"),
+          role: "user",
+          sessionID: input.sessionID,
+          time: { created: Date.now() },
+          agent: userMessage.agent,
+          model: userMessage.model,
+        })
+        await Session.updatePart({
+          id: Identifier.ascending("part"),
+          messageID: continueMsg.id,
+          sessionID: input.sessionID,
+          type: "text",
+          synthetic: true,
+          text: "The previous request exceeded the provider's size limit due to large media attachments. The conversation was compacted and media files were removed from context. If the user was asking about attached images or files, explain that the attachments were too large to process and suggest they try again with smaller or fewer files.\n\nContinue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.",
+          time: {
+            start: Date.now(),
+            end: Date.now(),
+          },
+        })
+      }
       return result
     }
 
