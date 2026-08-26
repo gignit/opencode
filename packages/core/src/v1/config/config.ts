@@ -29,6 +29,8 @@ const LogLevelRef = Schema.Literals(["DEBUG", "INFO", "WARN", "ERROR"]).annotate
   description: "Log level",
 })
 
+const Ratio = Schema.Number.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
+
 export const Info = Schema.Struct({
   $schema: Schema.optional(Schema.String).annotate({
     description: "JSON schema reference for configuration validation",
@@ -160,6 +162,22 @@ export const Info = Schema.Struct({
       }),
       preserve_recent_tokens: Schema.optional(NonNegativeInt).annotate({
         description: "Maximum number of tokens from recent turns to preserve verbatim after compaction",
+      }),
+      recent_tokens: Schema.optional(NonNegativeInt).annotate({
+        description:
+          "Absolute number of the most recent tokens to feed the summarizer as a relevance signal (the recent-context lens). Overridden by recent_ratio when that is set. This subset of the preserved tail is shown to the summarizer so it can weight the summary toward the current direction; it is not removed from the verbatim conversation.",
+      }),
+      trigger_ratio: Schema.optional(Ratio).annotate({
+        description:
+          "Fraction (0-1) of the model's context window at which automatic compaction triggers. When set, compaction fires once usage reaches trigger_ratio x context (a proactive percentage), overriding the default fixed-headroom (reserved) mechanism. Example: 0.85 compacts at 85% of the context window.",
+      }),
+      extract_ratio: Schema.optional(Ratio).annotate({
+        description:
+          "Fraction (0-1) of the current scoped conversation to summarize. When set, the verbatim tail preserved after compaction is sized to (1 - extract_ratio) of the scoped tokens, so it scales with session size instead of an absolute token count. Example: 0.4 summarizes the oldest ~40% and keeps the newest ~60% verbatim.",
+      }),
+      recent_ratio: Schema.optional(Ratio).annotate({
+        description:
+          "Fraction (0-1) of the scoped conversation to feed the summarizer as the relevance signal (the recent-context lens). When set, overrides recent_tokens. This subset of the verbatim tail is shown to the summarizer to weight the summary toward the current direction; it is not removed from the conversation.",
       }),
       reserved: Schema.optional(NonNegativeInt).annotate({
         description: "Token buffer for compaction. Leaves enough window to avoid overflow during compaction.",
