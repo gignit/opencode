@@ -227,7 +227,16 @@ const layer = Layer.effect(
     }) {
       const limit = input.cfg.compaction?.tail_turns
       if (limit !== undefined && limit <= 0) return { head: input.messages, tail_start_id: undefined }
-      const budget = preserveRecentBudget({ cfg: input.cfg, model: input.model })
+      // When extract_ratio is set, size the verbatim tail proportionally to the current
+      // conversation ((1 - extract_ratio) of scoped tokens) so it scales with session size and
+      // a small session is never fully summarized. Otherwise use the absolute token budget.
+      const extractRatio = input.cfg.compaction?.extract_ratio
+      const budget =
+        extractRatio === undefined
+          ? preserveRecentBudget({ cfg: input.cfg, model: input.model })
+          : Math.floor(
+              (1 - extractRatio) * (yield* estimate({ messages: input.messages, model: input.model })),
+            )
       const all = turns(input.messages)
       if (!all.length) return { head: input.messages, tail_start_id: undefined }
       const recent = limit === undefined ? all : all.slice(-limit)
@@ -266,6 +275,39 @@ const layer = Layer.effect(
         head: input.messages.slice(0, keep.start),
         tail_start_id: keep.id,
       }
+    })
+
+    // Walks the history newest-first and returns the index where the newest messages first
+    // exceed `budget` tokens, so the slice from there to the end fits within the budget.
+    const recentStart = Effect.fn("SessionCompaction.recentStart")(function* (input: {
+      history: SessionV1.WithParts[]
+      budget: number
+      model: Provider.Model
+    }) {
+      const sizes = yield* Effect.forEach(input.history, (message) =>
+        estimate({ messages: [message], model: input.model }),
+      )
+      const fit = sizes.reduceRight((state, size, index) => {
+        if (state.done) return state
+        const total = state.total + size
+        if (total > input.budget) return { total: state.total, start: index + 1, done: true }
+        return { total, start: index, done: false }
+      }, { total: 0, start: 0, done: false })
+      return fit.start
+    })
+
+    // The <recent_context> relevance signal: the newest messages up to `budget` tokens, serialized
+    // oldest-first. These stay verbatim in the conversation; they are shown to the summarizer only
+    // so it can weight the summary toward the session's current direction.
+    const recentContext = Effect.fn("SessionCompaction.recentContext")(function* (input: {
+      history: SessionV1.WithParts[]
+      budget: number
+      model: Provider.Model
+    }) {
+      if (input.budget <= 0) return undefined
+      const start = yield* recentStart(input)
+      const text = input.history.slice(start).map(serialize).filter(Boolean).join("\n\n")
+      return text || undefined
     })
 
     // goes backwards through parts until there are PRUNE_PROTECT tokens worth of tool
@@ -364,8 +406,11 @@ const layer = Layer.effect(
       const prior = completedCompactions(history)
       const hidden = new Set(prior.flatMap((item) => [item.userIndex, item.assistantIndex]))
       const previousSummary = prior.at(-1)?.summary
+      // The scoped conversation both ratios and selection reason about: history with prior
+      // compaction turns hidden.
+      const scoped = history.filter((_, index) => !hidden.has(index))
       const selected = yield* select({
-        messages: history.filter((_, index) => !hidden.has(index)),
+        messages: scoped,
         cfg,
         model,
       })
@@ -378,12 +423,21 @@ const layer = Layer.effect(
       const msgs = structuredClone(selected.head)
       yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
       const conversation = msgs.map(serialize).filter(Boolean).join("\n\n")
+      // recent_ratio (proportional) overrides the absolute recent_tokens when set. The result is a
+      // subset of the verbatim tail, fed to the summarizer as the relevance signal.
+      const recentRatio = cfg.compaction?.recent_ratio
+      const recentBudget =
+        recentRatio === undefined
+          ? (cfg.compaction?.recent_tokens ?? 0)
+          : Math.floor(recentRatio * (yield* estimate({ messages: scoped, model })))
+      const recent = yield* recentContext({ history: scoped, budget: recentBudget, model })
       const nextPrompt =
         compacting.prompt ??
         [
           buildPrompt({
             previousSummary,
             context: [conversation],
+            recent,
           }),
           ...compacting.context,
         ]

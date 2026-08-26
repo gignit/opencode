@@ -30,5 +30,9 @@ export function isOverflow(input: {
 
   const count =
     input.tokens.total || input.tokens.input + input.tokens.output + input.tokens.cache.read + input.tokens.cache.write
+  // When trigger_ratio is set, compact proactively at trigger_ratio x context (a percentage of the
+  // window) instead of the default fixed-headroom threshold.
+  const triggerRatio = input.cfg.compaction?.trigger_ratio
+  if (triggerRatio !== undefined) return count >= input.model.limit.context * triggerRatio
   return count >= usable(input)
 }

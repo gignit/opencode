@@ -29,6 +29,8 @@ const LogLevelRef = Schema.Literals(["DEBUG", "INFO", "WARN", "ERROR"]).annotate
   description: "Log level",
 })
 
+const Ratio = Schema.Number.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
+
 export const Info = Schema.Struct({
   $schema: Schema.optional(Schema.String).annotate({
     description: "JSON schema reference for configuration validation",
@@ -160,6 +162,22 @@ export const Info = Schema.Struct({
       }),
       preserve_recent_tokens: Schema.optional(NonNegativeInt).annotate({
         description: "Maximum number of tokens from recent turns to preserve verbatim after compaction",
+      }),
+      recent_tokens: Schema.optional(NonNegativeInt).annotate({
+        description:
+          "Tokens of the most recent messages to include in the compaction prompt as a relevance signal, so the summary is weighted toward the session's current direction. These messages are also kept verbatim (they are within the preserved tail). 0 disables the signal.",
+      }),
+      trigger_ratio: Schema.optional(Ratio).annotate({
+        description:
+          "Fraction (0-1) of the model's context window at which automatic compaction triggers. When set, compaction fires once usage reaches trigger_ratio x context (a proactive percentage), overriding the default fixed-headroom (reserved) mechanism. Example: 0.85 compacts at 85% of the context window.",
+      }),
+      extract_ratio: Schema.optional(Ratio).annotate({
+        description:
+          "Fraction (0-1) of the current scoped conversation to summarize (the oldest portion). The rest is kept verbatim as the tail. When set, this overrides preserve_recent_tokens and scales with session size, so a small session is never fully summarized. Example: 0.40 summarizes the oldest 40% and keeps the newest 60% verbatim.",
+      }),
+      recent_ratio: Schema.optional(Ratio).annotate({
+        description:
+          "Fraction (0-1) of the current scoped conversation, taken from the newest end, to include in the compaction prompt as the relevance signal. When set, overrides recent_tokens and scales with session size. Example: 0.15 feeds the newest 15% to the summarizer as the lens.",
       }),
       reserved: Schema.optional(NonNegativeInt).annotate({
         description: "Token buffer for compaction. Leaves enough window to avoid overflow during compaction.",
